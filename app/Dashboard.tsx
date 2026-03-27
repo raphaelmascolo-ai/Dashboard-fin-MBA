@@ -307,12 +307,12 @@ function CompanySection({ company, excludedIds, onToggle }: {
   const excludedCount = allItems.length - activeItems.length;
 
   return (
-    <section className="mb-10">
-      {/* ── Company header band ── */}
-      <div className="rounded-2xl bg-black text-white p-4 mb-4 shadow-md">
+    <section className="mb-8 rounded-2xl border-2 border-gray-200 shadow-lg overflow-hidden bg-white">
+      {/* ── Company header band — top of the card ── */}
+      <div className="bg-black text-white px-5 py-4">
         <div className="flex items-start justify-between gap-2 mb-3">
           <div>
-            <h2 className="text-sm font-bold text-white leading-snug">{company}</h2>
+            <h2 className="text-base font-bold text-white leading-snug">{company}</h2>
             <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
               <span className="text-xs text-gray-400">{activeItems.length}/{allItems.length} hypothèque{allItems.length > 1 ? "s" : ""}</span>
               {excludedCount > 0 && <span className="rounded-full bg-gray-700 px-2 py-0.5 text-[11px] font-semibold text-gray-300">{excludedCount} exclu{excludedCount > 1 ? "s" : ""}</span>}
@@ -330,12 +330,12 @@ function CompanySection({ company, excludedIds, onToggle }: {
       </div>
 
       {/* Mobile cards */}
-      <div className="md:hidden">
+      <div className="md:hidden p-3">
         {allItems.map((m) => (
           <MortgageCard key={m.id} m={m} excluded={excludedIds.has(m.id)} onToggle={() => onToggle(m.id)} />
         ))}
         {/* Totals */}
-        <div className="rounded-2xl bg-gray-900 text-white p-4 grid grid-cols-2 gap-2 mt-1 mb-2">
+        <div className="rounded-xl bg-gray-900 text-white p-4 grid grid-cols-2 gap-2 mt-1">
           <div className="col-span-2 text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1">
             Sous-total — {activeItems.length}{excludedCount > 0 ? `/${allItems.length}` : ""} contrat{allItems.length > 1 ? "s" : ""}
           </div>
@@ -351,8 +351,8 @@ function CompanySection({ company, excludedIds, onToggle }: {
         </div>
       </div>
 
-      {/* Desktop table */}
-      <div className="hidden md:block overflow-x-auto rounded-2xl border border-gray-200 shadow-sm">
+      {/* Desktop table — flush inside the card, no extra border */}
+      <div className="hidden md:block overflow-x-auto">
         <table className="w-full text-sm min-w-[1000px]">
           <thead>
             <tr className="bg-gray-100 text-xs text-gray-500 uppercase tracking-wide border-b border-gray-200">
