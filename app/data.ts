@@ -303,6 +303,12 @@ export const mortgages: Mortgage[] = [
   },
 ];
 
+/** Intérêts annuels sur la base du solde actuel et du taux (part MBA) */
+export function calcAnnualInterest(m: Mortgage): number {
+  if (new Date(m.endDate) <= TODAY) return 0;
+  return Math.round(m.remainingToday * (m.rate / 100) * ratio(m));
+}
+
 // Calculate total interest remaining from today until end date
 // Takes quarterly amortization and share ratio into account
 export function calcRemainingInterest(m: Mortgage): number {

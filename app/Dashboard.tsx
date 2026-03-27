@@ -7,6 +7,7 @@ import {
   formatDate,
   calcRemainingInterest,
   calcTotalInterestFullPeriod,
+  calcAnnualInterest,
   yearsRemaining,
   isExpired,
   isExpiringSoon,
@@ -272,10 +273,10 @@ function TableRow({
       <td className={`px-3 py-3 text-right font-mono text-sm ${excluded ? "text-gray-400" : "text-gray-500"}`}>
         {formatCHF(eff(m, m.remainingAtEnd))}
       </td>
-      <td className={`px-3 py-3 text-right font-mono text-sm ${excluded ? "text-gray-400" : "text-gray-500"}`}>
-        {formatCHF(totalInterest)}
-      </td>
       <td className={`px-3 py-3 text-right font-mono text-sm font-semibold ${excluded ? "text-gray-400" : "text-purple-700"}`}>
+        {formatCHF(calcAnnualInterest(m))}
+      </td>
+      <td className={`px-3 py-3 text-right font-mono text-sm ${excluded ? "text-gray-400" : "text-gray-500"}`}>
         {formatCHF(remInterest)}
       </td>
       <td className="px-3 py-3 text-right text-xs text-gray-500">
@@ -321,6 +322,7 @@ function CompanySection({
   const totalInitial = activeItems.reduce((s, m) => s + eff(m, m.totalAmount), 0);
   const totalToday = activeItems.reduce((s, m) => s + eff(m, m.remainingToday), 0);
   const totalEnd = activeItems.reduce((s, m) => s + eff(m, m.remainingAtEnd), 0);
+  const totalIntAnnual = activeItems.reduce((s, m) => s + calcAnnualInterest(m), 0);
   const totalIntRem = activeItems.reduce((s, m) => s + calcRemainingInterest(m), 0);
   const totalIntFull = activeItems.reduce((s, m) => s + calcTotalInterestFullPeriod(m), 0);
   const totalAmort = activeItems.reduce((s, m) => s + eff(m, m.annualAmortization), 0);
@@ -357,7 +359,7 @@ function CompanySection({
           </div>
           <div className="flex flex-wrap gap-2">
             <StatChip label="Solde actuel" value={formatCHF(totalToday)} />
-            <StatChip label="Intérêts restants" value={formatCHF(totalIntRem)} />
+            <StatChip label="Intérêts annuels" value={formatCHF(totalIntAnnual)} />
             {propValue > 0 && <StatChip label="Valeur des biens" value={formatCHF(propValue)} />}
           </div>
         </div>
@@ -377,7 +379,8 @@ function CompanySection({
             <TotalCell label="Montant initial total" value={formatCHF(totalInitial)} />
             <TotalCell label="Solde aujourd'hui" value={formatCHF(totalToday)} blue />
             <TotalCell label="Solde à la fin" value={formatCHF(totalEnd)} />
-            <TotalCell label="Intérêts restants" value={formatCHF(totalIntRem)} purple />
+            <TotalCell label="Intérêts annuels" value={formatCHF(totalIntAnnual)} purple />
+            <TotalCell label="Intérêts restants" value={formatCHF(totalIntRem)} />
             {propValue > 0 && <TotalCell label="Valeur des biens" value={formatCHF(propValue)} green />}
             {propValue > 0 && <TotalCell label="Fonds propres" value={formatCHF(propValue - totalToday)} emerald />}
             <TotalCell label="Intérêts totaux contrat" value={formatCHF(totalIntFull)} />
@@ -388,7 +391,7 @@ function CompanySection({
           <table className="w-full text-sm min-w-[900px]">
             <thead>
               <tr className="bg-gray-100 text-xs text-gray-500 uppercase tracking-wide border-b border-gray-200">
-                {["Bien / Contrat", "Statut", "Montant initial", "Taux", "Période", "Amort. annuel", "Solde actuel", "Solde fin contrat", "Intérêts contrat", "Intérêts restants", "Valeur / LTV"].map((h, i) => (
+                {["Bien / Contrat", "Statut", "Montant initial", "Taux", "Période", "Amort. annuel", "Solde actuel", "Solde fin contrat", "Intérêts annuels", "Intérêts restants", "Valeur / LTV"].map((h, i) => (
                   <th key={h} className={`px-3 py-2 ${i === 0 ? "text-left" : i <= 1 ? "text-center" : "text-right"}`}>{h}</th>
                 ))}
               </tr>
@@ -412,8 +415,8 @@ function CompanySection({
                 <td className="px-3 py-3 text-right font-mono">{totalAmort > 0 ? formatCHF(totalAmort) : "–"}</td>
                 <td className="px-3 py-3 text-right font-mono text-blue-700">{formatCHF(totalToday)}</td>
                 <td className="px-3 py-3 text-right font-mono">{formatCHF(totalEnd)}</td>
-                <td className="px-3 py-3 text-right font-mono">{formatCHF(totalIntFull)}</td>
-                <td className="px-3 py-3 text-right font-mono text-purple-700">{formatCHF(totalIntRem)}</td>
+                <td className="px-3 py-3 text-right font-mono text-purple-700">{formatCHF(totalIntAnnual)}</td>
+                <td className="px-3 py-3 text-right font-mono">{formatCHF(totalIntRem)}</td>
                 <td className="px-3 py-3 text-right font-mono text-green-700">
                   {propValue > 0 ? formatCHF(propValue) : "–"}
                   {propValue > 0 && (
@@ -457,6 +460,7 @@ function SummaryCards({ activeMortgages }: { activeMortgages: Mortgage[] }) {
   const totalInitial = activeMortgages.reduce((s, m) => s + eff(m, m.totalAmount), 0);
   const totalToday = activeMortgages.reduce((s, m) => s + eff(m, m.remainingToday), 0);
   const totalEnd = activeMortgages.reduce((s, m) => s + eff(m, m.remainingAtEnd), 0);
+  const totalIntAnnual = activeMortgages.reduce((s, m) => s + calcAnnualInterest(m), 0);
   const totalIntRem = activeMortgages.reduce((s, m) => s + calcRemainingInterest(m), 0);
   const totalIntFull = activeMortgages.reduce((s, m) => s + calcTotalInterestFullPeriod(m), 0);
   const totalAmortA = activeMortgages.reduce((s, m) => s + eff(m, m.annualAmortization), 0);
@@ -490,9 +494,9 @@ function SummaryCards({ activeMortgages }: { activeMortgages: Mortgage[] }) {
       icon: "💰",
     },
     {
-      title: "Intérêts restants",
-      value: formatCHF(totalIntRem),
-      sub: `${formatCHF(totalIntFull)} sur toute la durée`,
+      title: "Intérêts annuels",
+      value: formatCHF(totalIntAnnual),
+      sub: `${formatCHF(totalIntRem)} restants au total`,
       color: "bg-purple-600",
       icon: "💶",
     },
