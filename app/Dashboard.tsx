@@ -8,6 +8,7 @@ import {
   calcRemainingInterest,
   calcTotalInterestFullPeriod,
   calcAnnualInterest,
+  annualRent,
   yearsRemaining,
   isExpired,
   isExpiringSoon,
@@ -292,6 +293,14 @@ function TableRow({
           </>
         ) : "–"}
       </td>
+      <td className={`px-3 py-3 text-right font-mono text-sm ${excluded ? "text-gray-400" : (m.monthlyRent ?? 0) > 0 ? "font-semibold text-emerald-700" : "text-gray-400"}`}>
+        {(m.monthlyRent ?? 0) > 0 ? (
+          <>
+            <div>{formatCHF(annualRent(m))}</div>
+            <div className="text-xs font-normal text-gray-400">{formatCHF(m.monthlyRent!)}/mois</div>
+          </>
+        ) : "–"}
+      </td>
     </tr>
   );
 }
@@ -326,6 +335,7 @@ function CompanySection({
   const totalIntRem = activeItems.reduce((s, m) => s + calcRemainingInterest(m), 0);
   const totalIntFull = activeItems.reduce((s, m) => s + calcTotalInterestFullPeriod(m), 0);
   const totalAmort = activeItems.reduce((s, m) => s + eff(m, m.annualAmortization), 0);
+  const totalRent = activeItems.reduce((s, m) => s + annualRent(m), 0);
   const propValue = totalPropertyValue(activeItems);
   const expiredCount = activeItems.filter(isExpired).length;
   const soonCount = activeItems.filter(isExpiringSoon).length;
@@ -383,6 +393,7 @@ function CompanySection({
             <TotalCell label="Intérêts restants" value={formatCHF(totalIntRem)} />
             {propValue > 0 && <TotalCell label="Valeur des biens" value={formatCHF(propValue)} green />}
             {propValue > 0 && <TotalCell label="Fonds propres" value={formatCHF(propValue - totalToday)} emerald />}
+            {totalRent > 0 && <TotalCell label="Loyers annuels" value={formatCHF(totalRent)} emerald />}
             <TotalCell label="Intérêts totaux contrat" value={formatCHF(totalIntFull)} />
           </div>
         </>
@@ -391,7 +402,7 @@ function CompanySection({
           <table className="w-full text-sm min-w-[900px]">
             <thead>
               <tr className="bg-gray-100 text-xs text-gray-500 uppercase tracking-wide border-b border-gray-200">
-                {["Bien / Contrat", "Statut", "Montant initial", "Taux", "Période", "Amort. annuel", "Solde actuel", "Solde fin contrat", "Intérêts annuels", "Intérêts restants", "Valeur / LTV"].map((h, i) => (
+                {["Bien / Contrat", "Statut", "Montant initial", "Taux", "Période", "Amort. annuel", "Solde actuel", "Solde fin contrat", "Intérêts annuels", "Intérêts restants", "Valeur / LTV", "Loyers annuels"].map((h, i) => (
                   <th key={h} className={`px-3 py-2 ${i === 0 ? "text-left" : i <= 1 ? "text-center" : "text-right"}`}>{h}</th>
                 ))}
               </tr>
@@ -424,6 +435,9 @@ function CompanySection({
                       +{formatCHF(propValue - totalToday)}
                     </div>
                   )}
+                </td>
+                <td className="px-3 py-3 text-right font-mono text-emerald-700">
+                  {totalRent > 0 ? formatCHF(totalRent) : "–"}
                 </td>
               </tr>
             </tbody>
@@ -463,6 +477,7 @@ function SummaryCards({ activeMortgages }: { activeMortgages: Mortgage[] }) {
   const totalIntAnnual = activeMortgages.reduce((s, m) => s + calcAnnualInterest(m), 0);
   const totalIntRem = activeMortgages.reduce((s, m) => s + calcRemainingInterest(m), 0);
   const totalIntFull = activeMortgages.reduce((s, m) => s + calcTotalInterestFullPeriod(m), 0);
+  const totalRentGlobal = activeMortgages.reduce((s, m) => s + annualRent(m), 0);
   const totalAmortA = activeMortgages.reduce((s, m) => s + eff(m, m.annualAmortization), 0);
   const totalAmortQ = activeMortgages.reduce((s, m) => s + eff(m, m.quarterlyAmortization), 0);
   const propValue = totalPropertyValue(activeMortgages);
@@ -508,11 +523,11 @@ function SummaryCards({ activeMortgages }: { activeMortgages: Mortgage[] }) {
       icon: "📉",
     },
     {
-      title: "Solde résiduel à l'échéance",
-      value: formatCHF(totalEnd),
-      sub: `${activeMortgages.length} contrat${activeMortgages.length !== 1 ? "s" : ""}${excludedCount > 0 ? ` (${excludedCount} exclu${excludedCount > 1 ? "s" : ""})` : ""}`,
-      color: "bg-slate-700",
-      icon: "🏁",
+      title: "Loyers annuels",
+      value: formatCHF(totalRentGlobal),
+      sub: `${formatCHF(Math.round(totalRentGlobal / 12))}/mois`,
+      color: "bg-emerald-600",
+      icon: "🏘️",
     },
     {
       title: "Alertes",

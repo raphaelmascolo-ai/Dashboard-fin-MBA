@@ -16,6 +16,7 @@ export interface Mortgage {
   propertyValue: number | null;
   propertyGroup?: string; // group multiple mortgages on the same property
   shared?: boolean;       // 50/50 avec Gabriel Borgeat — on comptabilise 50%
+  monthlyRent?: number;   // loyer mensuel CHF (0 ou absent = non loué)
 }
 
 /** Part MBA : 0.5 si partagé avec Borgeat, sinon 1 */
@@ -49,6 +50,7 @@ export const mortgages: Mortgage[] = [
     remainingAtEnd: 190000,
     remainingToday: 211000,
     propertyValue: 1500000,
+    monthlyRent: 4200,
   },
   {
     id: "783.041.116.9",
@@ -64,6 +66,7 @@ export const mortgages: Mortgage[] = [
     remainingAtEnd: 500000,
     remainingToday: 612500,
     propertyValue: 2500000,
+    monthlyRent: 9000,
   },
   {
     id: "157.912.972.8",
@@ -79,6 +82,7 @@ export const mortgages: Mortgage[] = [
     remainingAtEnd: 950000,
     remainingToday: 1081250,
     propertyValue: 3600000,
+    monthlyRent: 15986,
   },
   {
     id: "243.739.895.7",
@@ -94,6 +98,7 @@ export const mortgages: Mortgage[] = [
     remainingAtEnd: 960000,
     remainingToday: 1014000,
     propertyValue: 2200000,
+    monthlyRent: 6200,
   },
   {
     id: "440.195.112.1",
@@ -109,6 +114,7 @@ export const mortgages: Mortgage[] = [
     remainingAtEnd: 268000,
     remainingToday: 284000,
     propertyValue: 480000,
+    monthlyRent: 1650,
   },
   // MBA Construction SA et Gabriel Borgeat SA
   {
@@ -126,6 +132,7 @@ export const mortgages: Mortgage[] = [
     remainingAtEnd: 415900,
     remainingToday: 418100,
     propertyValue: 667000,
+    monthlyRent: 0,
   },
   // LAEMA Immobilier SA et Gabriel Borgeat SA
   {
@@ -143,6 +150,7 @@ export const mortgages: Mortgage[] = [
     remainingAtEnd: 300000,
     remainingToday: 300000,
     propertyValue: 3000000,
+    monthlyRent: 0,
   },
   // LAEMA Immobilier SA
   {
@@ -159,6 +167,7 @@ export const mortgages: Mortgage[] = [
     remainingAtEnd: 1150000,
     remainingToday: 1185000,
     propertyValue: 2660000,
+    monthlyRent: 6610,
   },
   {
     id: "138.223.732.4",
@@ -174,6 +183,7 @@ export const mortgages: Mortgage[] = [
     remainingAtEnd: 305000,
     remainingToday: 305000,
     propertyValue: 500000,
+    monthlyRent: 1700,
   },
   {
     id: "355.391.332.6",
@@ -189,6 +199,7 @@ export const mortgages: Mortgage[] = [
     remainingAtEnd: 1459500,
     remainingToday: 1459500,
     propertyValue: 2600000,
+    monthlyRent: 7880,
   },
   {
     id: "300.755.888.4",
@@ -204,6 +215,7 @@ export const mortgages: Mortgage[] = [
     remainingAtEnd: 420000,
     remainingToday: 420000,
     propertyValue: 800000,
+    monthlyRent: 1500,
   },
   {
     id: "730.826.391.5",
@@ -220,6 +232,7 @@ export const mortgages: Mortgage[] = [
     remainingToday: 307735,
     propertyValue: 750000,
     propertyGroup: "bellini",
+    monthlyRent: 2100,
   },
   {
     id: "239.402.118.8",
@@ -236,6 +249,7 @@ export const mortgages: Mortgage[] = [
     remainingToday: 154920,
     propertyValue: 750000,
     propertyGroup: "bellini",
+    monthlyRent: 0,
   },
   {
     id: "951.084.130.3",
@@ -251,6 +265,7 @@ export const mortgages: Mortgage[] = [
     remainingAtEnd: 230000,
     remainingToday: 258750,
     propertyValue: 500000,
+    monthlyRent: 1800,
   },
   // MBA Immobilier SA et Gabriel Borgeat SA
   {
@@ -268,6 +283,7 @@ export const mortgages: Mortgage[] = [
     remainingAtEnd: 250000,
     remainingToday: 250000,
     propertyValue: 517000,
+    monthlyRent: 0,
   },
   {
     id: "979.111.419.7",
@@ -284,6 +300,7 @@ export const mortgages: Mortgage[] = [
     remainingAtEnd: 520000,
     remainingToday: 520000,
     propertyValue: 1110000,
+    monthlyRent: 0,
   },
   {
     id: "763.766.848.9",
@@ -300,8 +317,14 @@ export const mortgages: Mortgage[] = [
     remainingAtEnd: 270000,
     remainingToday: 270000,
     propertyValue: 426600,
+    monthlyRent: 0,
   },
 ];
+
+/** Loyer annuel (part MBA) */
+export function annualRent(m: Mortgage): number {
+  return Math.round((m.monthlyRent ?? 0) * 12 * ratio(m));
+}
 
 /** Intérêts annuels réels : simulation sur 4 trimestres avec amortissement trimestriel */
 export function calcAnnualInterest(m: Mortgage): number {
