@@ -293,11 +293,12 @@ function TableRow({
           </>
         ) : "–"}
       </td>
-      <td className={`px-3 py-3 text-right font-mono text-sm ${excluded ? "text-gray-400" : (m.monthlyRent ?? 0) > 0 ? "font-semibold text-emerald-700" : "text-gray-400"}`}>
+      <td className={`px-3 py-3 text-right text-sm ${excluded ? "text-gray-400" : (m.monthlyRent ?? 0) > 0 ? "" : "text-gray-400"}`}>
         {(m.monthlyRent ?? 0) > 0 ? (
           <>
-            <div>{formatCHF(annualRent(m))}</div>
-            <div className="text-xs font-normal text-gray-400">{formatCHF(m.monthlyRent!)}/mois</div>
+            <div className="font-mono font-semibold text-emerald-700">{formatCHF(annualRent(m))}</div>
+            <div className="text-xs text-gray-400 font-mono">{formatCHF(m.monthlyRent!)}/mois</div>
+            <div className="text-xs text-red-400 font-mono mt-0.5">–{formatCHF(Math.round(annualRent(m) * 0.1))} charges</div>
           </>
         ) : "–"}
       </td>
@@ -336,6 +337,7 @@ function CompanySection({
   const totalIntFull = activeItems.reduce((s, m) => s + calcTotalInterestFullPeriod(m), 0);
   const totalAmort = activeItems.reduce((s, m) => s + eff(m, m.annualAmortization), 0);
   const totalRent = activeItems.reduce((s, m) => s + annualRent(m), 0);
+  const totalCharges = Math.round(totalRent * 0.1);
   const propValue = totalPropertyValue(activeItems);
   const expiredCount = activeItems.filter(isExpired).length;
   const soonCount = activeItems.filter(isExpiringSoon).length;
@@ -394,6 +396,7 @@ function CompanySection({
             {propValue > 0 && <TotalCell label="Valeur des biens" value={formatCHF(propValue)} green />}
             {propValue > 0 && <TotalCell label="Fonds propres" value={formatCHF(propValue - totalToday)} emerald />}
             {totalRent > 0 && <TotalCell label="Loyers annuels" value={formatCHF(totalRent)} emerald />}
+            {totalRent > 0 && <TotalCell label="Charges (10%)" value={`–${formatCHF(totalCharges)}`} />}
             <TotalCell label="Intérêts totaux contrat" value={formatCHF(totalIntFull)} />
           </div>
         </>
@@ -437,7 +440,12 @@ function CompanySection({
                   )}
                 </td>
                 <td className="px-3 py-3 text-right font-mono text-emerald-700">
-                  {totalRent > 0 ? formatCHF(totalRent) : "–"}
+                  {totalRent > 0 ? (
+                    <>
+                      <div>{formatCHF(totalRent)}</div>
+                      <div className="text-xs font-normal text-red-400">–{formatCHF(totalCharges)} charges</div>
+                    </>
+                  ) : "–"}
                 </td>
               </tr>
             </tbody>
@@ -478,6 +486,7 @@ function SummaryCards({ activeMortgages }: { activeMortgages: Mortgage[] }) {
   const totalIntRem = activeMortgages.reduce((s, m) => s + calcRemainingInterest(m), 0);
   const totalIntFull = activeMortgages.reduce((s, m) => s + calcTotalInterestFullPeriod(m), 0);
   const totalRentGlobal = activeMortgages.reduce((s, m) => s + annualRent(m), 0);
+  const totalChargesGlobal = Math.round(totalRentGlobal * 0.1);
   const totalAmortA = activeMortgages.reduce((s, m) => s + eff(m, m.annualAmortization), 0);
   const totalAmortQ = activeMortgages.reduce((s, m) => s + eff(m, m.quarterlyAmortization), 0);
   const propValue = totalPropertyValue(activeMortgages);
@@ -525,7 +534,7 @@ function SummaryCards({ activeMortgages }: { activeMortgages: Mortgage[] }) {
     {
       title: "Loyers annuels",
       value: formatCHF(totalRentGlobal),
-      sub: `${formatCHF(Math.round(totalRentGlobal / 12))}/mois`,
+      sub: `Charges (10%) : ${formatCHF(totalChargesGlobal)}`,
       color: "bg-emerald-600",
       icon: "🏘️",
     },
