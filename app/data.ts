@@ -303,10 +303,18 @@ export const mortgages: Mortgage[] = [
   },
 ];
 
-/** Intérêts annuels sur la base du solde actuel et du taux (part MBA) */
+/** Intérêts annuels réels : simulation sur 4 trimestres avec amortissement trimestriel */
 export function calcAnnualInterest(m: Mortgage): number {
   if (new Date(m.endDate) <= TODAY) return 0;
-  return Math.round(m.remainingToday * (m.rate / 100) * ratio(m));
+  const ratePerQuarter = m.rate / 100 / 4;
+  let balance = m.remainingToday;
+  let totalInterest = 0;
+  for (let q = 0; q < 4; q++) {
+    if (balance <= 0) break;
+    totalInterest += balance * ratePerQuarter;
+    balance = Math.max(0, balance - m.quarterlyAmortization);
+  }
+  return Math.round(totalInterest * ratio(m));
 }
 
 // Calculate total interest remaining from today until end date
