@@ -69,11 +69,11 @@ function MortgageCard({ m, excluded, onToggle }: { m: Mortgage; excluded: boolea
   const accentColor = excluded ? "border-l-gray-300"
     : isExpired(m) ? "border-l-red-400"
     : isExpiringSoon(m) ? "border-l-amber-400"
-    : "border-l-green-400";
+    : "border-l-green-500";
 
   return (
-    <div className={`rounded-2xl border border-gray-200 border-l-4 ${accentColor} bg-white shadow-sm overflow-hidden mb-3 transition-all ${excluded ? "opacity-50" : ""}`}>
-      <button className="w-full text-left p-4" onClick={() => setOpen((v) => !v)}>
+    <div className={`border-b border-gray-100 border-l-4 ${accentColor} bg-white transition-all ${excluded ? "opacity-50" : ""}`}>
+      <button className="w-full text-left px-4 py-3" onClick={() => setOpen((v) => !v)}>
         <div className="flex items-start justify-between gap-2 mb-3">
           <div className="flex-1 min-w-0">
             <div className={`font-bold text-sm leading-snug ${excluded ? "line-through text-gray-400" : "text-gray-900"}`}>
@@ -98,36 +98,35 @@ function MortgageCard({ m, excluded, onToggle }: { m: Mortgage; excluded: boolea
 
         {!excluded && (
           <>
-            <div className="grid grid-cols-2 gap-2">
-              <div className="rounded-xl bg-yellow-50 border border-yellow-200 p-3">
-                <div className="text-[11px] text-yellow-700 font-medium mb-0.5">Solde actuel</div>
-                <div className="text-base font-bold text-yellow-800 leading-tight">{formatCHF(eff(m, m.remainingToday))}</div>
+            <div className="grid grid-cols-2 gap-2 mt-2">
+              <div className="rounded-lg bg-yellow-50 border border-yellow-200 px-3 py-2">
+                <div className="text-[10px] text-yellow-700 font-medium">Solde actuel</div>
+                <div className="text-sm font-bold text-yellow-800 leading-tight mt-0.5">{formatCHF(eff(m, m.remainingToday))}</div>
               </div>
-              <div className="rounded-xl bg-purple-50 border border-purple-200 p-3">
-                <div className="text-[11px] text-purple-700 font-medium mb-0.5">Intérêts annuels</div>
-                <div className="text-base font-bold text-purple-800 leading-tight">{formatCHF(annualInterest)}</div>
+              <div className="rounded-lg bg-purple-50 border border-purple-200 px-3 py-2">
+                <div className="text-[10px] text-purple-700 font-medium">Intérêts annuels</div>
+                <div className="text-sm font-bold text-purple-800 leading-tight mt-0.5">{formatCHF(annualInterest)}</div>
               </div>
               {rent > 0 && (
-                <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-3">
-                  <div className="text-[11px] text-emerald-700 font-medium mb-0.5">Loyer annuel</div>
-                  <div className="text-base font-bold text-emerald-800 leading-tight">{formatCHF(rent)}</div>
+                <div className="rounded-lg bg-emerald-50 border border-emerald-200 px-3 py-2">
+                  <div className="text-[10px] text-emerald-700 font-medium">Loyer annuel</div>
+                  <div className="text-sm font-bold text-emerald-800 leading-tight mt-0.5">{formatCHF(rent)}</div>
                 </div>
               )}
-              <div className="rounded-xl bg-gray-50 border border-gray-200 p-3">
-                <div className="text-[11px] text-gray-500 font-medium mb-0.5">Taux</div>
-                <div className="text-sm font-bold text-gray-800 leading-tight">
+              <div className="rounded-lg bg-gray-50 border border-gray-200 px-3 py-2">
+                <div className="text-[10px] text-gray-500 font-medium">Taux</div>
+                <div className="text-sm font-bold text-gray-800 leading-tight mt-0.5">
                   {m.rateType === "saron" ? `S+${m.rate}%` : `${m.rate.toFixed(2)}%`}
                 </div>
-                <div className="text-[10px] text-gray-400 mt-0.5">{m.rateType === "saron" ? "Variable" : "Fixe"}</div>
               </div>
             </div>
-            {ltvVal !== null && <div className="mt-3"><LtvBar value={ltvVal} /></div>}
+            {ltvVal !== null && <div className="mt-2"><LtvBar value={ltvVal} /></div>}
           </>
         )}
       </button>
 
       {open && (
-        <div className="border-t border-gray-100 bg-gray-50 p-4 space-y-0">
+        <div className="border-t border-gray-100 bg-gray-50 px-4 py-4 space-y-0">
           <DetailSection title="Contrat">
             <DataRow label="Début" value={formatDate(m.startDate)} />
             <DataRow label="Fin" value={formatDate(m.endDate)} />
@@ -330,12 +329,12 @@ function CompanySection({ company, excludedIds, onToggle }: {
       </div>
 
       {/* Mobile cards */}
-      <div className="md:hidden p-3">
+      <div className="md:hidden">
         {allItems.map((m) => (
           <MortgageCard key={m.id} m={m} excluded={excludedIds.has(m.id)} onToggle={() => onToggle(m.id)} />
         ))}
         {/* Totals */}
-        <div className="rounded-xl bg-gray-900 text-white p-4 grid grid-cols-2 gap-2 mt-1">
+        <div className="bg-gray-900 text-white p-4 grid grid-cols-2 gap-2">
           <div className="col-span-2 text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1">
             Sous-total — {activeItems.length}{excludedCount > 0 ? `/${allItems.length}` : ""} contrat{allItems.length > 1 ? "s" : ""}
           </div>
