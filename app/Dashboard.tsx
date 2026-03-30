@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import {
   mortgages,
   companies,
@@ -481,32 +482,27 @@ export default function Dashboard() {
 
       {/* ══ Sidebar (desktop only) ══ */}
       <aside className="hidden md:flex flex-col w-56 bg-black text-white shrink-0 z-10">
-        {/* Logo */}
-        <div className="px-5 py-5 border-b border-white/10">
-          <div className="flex items-center gap-3">
-            <div className="relative w-8 h-8 shrink-0">
-              <Image src="/logo.png" alt="MBA" fill className="object-contain" />
-            </div>
-            <div>
-              <div className="text-sm font-bold text-white leading-tight">MBA Groupe SA</div>
-              <div className="text-[10px] text-gray-500 uppercase tracking-wider mt-0.5">Wealth Management</div>
-            </div>
+        {/* Logo — lien retour accueil */}
+        <Link href="/" className="px-5 py-5 border-b border-white/10 flex items-center gap-3 hover:bg-white/5 transition-colors">
+          <div className="relative w-8 h-8 shrink-0">
+            <Image src="/logo.png" alt="MBA" fill className="object-contain" />
           </div>
-        </div>
+          <div>
+            <div className="text-sm font-bold text-white leading-tight">MBA Groupe SA</div>
+            <div className="text-[10px] text-gray-500 uppercase tracking-wider mt-0.5">Wealth Management</div>
+          </div>
+        </Link>
 
         {/* Nav */}
         <nav className="flex-1 px-3 py-4 space-y-0.5">
           <NavItem icon="🏦" label="Hypothèques" active />
         </nav>
 
-        {/* Date + generate */}
-        <div className="px-4 pb-5 space-y-3">
+        {/* Date */}
+        <div className="px-4 pb-5">
           <div className="text-[11px] text-gray-500 text-center">
             Données au {TODAY.toLocaleDateString("fr-CH")}
           </div>
-          <button className="w-full bg-amber-500 hover:bg-amber-400 text-black rounded-xl py-3 text-xs font-bold flex items-center justify-center gap-2 transition-colors">
-            📄 Générer rapport
-          </button>
         </div>
       </aside>
 
