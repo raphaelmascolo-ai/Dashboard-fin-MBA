@@ -496,11 +496,7 @@ export default function Dashboard() {
 
         {/* Nav */}
         <nav className="flex-1 px-3 py-4 space-y-0.5">
-          <NavItem icon="📊" label="Vue d'ensemble" active />
-          <NavItem icon="🏦" label="Hypothèques" />
-          <NavItem icon="🏠" label="Biens" />
-          <NavItem icon="📈" label="Analyses" />
-          <NavItem icon="📋" label="Rapports" />
+          <NavItem icon="🏦" label="Hypothèques" active />
         </nav>
 
         {/* Date + generate */}
