@@ -440,26 +440,6 @@ function KpiCard({ label, value, sub, icon, gold, green, red, amber }: {
   );
 }
 
-// ── Sidebar nav item ──────────────────────────────────────────────────────────
-function NavItem({ icon, label, active }: { icon: string; label: string; active?: boolean }) {
-  return (
-    <div className={`flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-colors ${active ? "bg-amber-500/15 text-amber-400" : "text-gray-400 hover:text-white hover:bg-white/5"}`}>
-      <span className="text-base leading-none">{icon}</span>
-      <span className="text-sm font-medium">{label}</span>
-    </div>
-  );
-}
-
-// ── Mobile bottom nav item ────────────────────────────────────────────────────
-function MobileTab({ icon, label, active }: { icon: string; label: string; active?: boolean }) {
-  return (
-    <div className={`flex-1 flex flex-col items-center py-2 gap-0.5 ${active ? "text-amber-600" : "text-gray-400"}`}>
-      <span className="text-xl leading-none">{icon}</span>
-      <span className="text-[10px] font-medium">{label}</span>
-    </div>
-  );
-}
-
 // ── Main ──────────────────────────────────────────────────────────────────────
 export default function Dashboard() {
   const [activeCompany, setActiveCompany] = useState<string | null>(null);
@@ -478,119 +458,80 @@ export default function Dashboard() {
   const visible = activeCompany ? [activeCompany] : companies;
 
   return (
-    <div className="flex h-screen bg-stone-100 overflow-hidden">
+    <div className="min-h-screen bg-stone-100">
 
-      {/* ══ Sidebar (desktop only) ══ */}
-      <aside className="hidden md:flex flex-col w-56 bg-black text-white shrink-0 z-10">
-        {/* Logo — lien retour accueil */}
-        <Link href="/" className="px-5 py-5 border-b border-white/10 flex items-center gap-3 hover:bg-white/5 transition-colors">
-          <div className="relative w-8 h-8 shrink-0">
-            <Image src="/logo.png" alt="MBA" fill className="object-contain" />
-          </div>
-          <div>
-            <div className="text-sm font-bold text-white leading-tight">MBA Groupe SA</div>
-            <div className="text-[10px] text-gray-500 uppercase tracking-wider mt-0.5">Wealth Management</div>
-          </div>
-        </Link>
-
-        {/* Nav */}
-        <nav className="flex-1 px-3 py-4 space-y-0.5">
-          <NavItem icon="🏦" label="Hypothèques" active />
-        </nav>
-
-        {/* Date */}
-        <div className="px-4 pb-5">
-          <div className="text-[11px] text-gray-500 text-center">
-            Données au {TODAY.toLocaleDateString("fr-CH")}
-          </div>
-        </div>
-      </aside>
-
-      {/* ══ Main ══ */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-
-        {/* Desktop header */}
-        <header className="hidden md:flex items-center justify-between bg-white border-b border-gray-200 px-6 py-3.5 shrink-0 shadow-sm">
-          <div>
-            <h1 className="text-base font-bold text-gray-900">Vue d'ensemble du portefeuille</h1>
-            <p className="text-[11px] text-gray-400 mt-0.5">
-              Tableau de bord hypothèques · {TODAY.toLocaleDateString("fr-CH", { day: "2-digit", month: "long", year: "numeric" })}
-              {excludedIds.size > 0 && <span className="ml-2 text-amber-600 font-semibold">· {excludedIds.size} exclu{excludedIds.size > 1 ? "s" : ""}</span>}
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
-            {excludedIds.size > 0 && (
-              <button onClick={() => setExcludedIds(new Set())} className="text-xs rounded-full bg-amber-100 text-amber-700 px-3 py-1.5 font-semibold border border-amber-200 hover:bg-amber-200 transition-colors">
-                ↺ Réinitialiser
-              </button>
-            )}
-            <div className="w-8 h-8 rounded-full bg-amber-500 flex items-center justify-center text-black font-bold text-sm">M</div>
-          </div>
-        </header>
-
-        {/* Mobile header */}
-        <header className="md:hidden bg-black text-white px-4 pt-4 pb-4 shrink-0 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="relative w-8 h-8 shrink-0">
+      {/* ══ Header ══ */}
+      <header className="bg-black text-white sticky top-0 z-20 shadow-md">
+        <div className="max-w-screen-2xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
+          {/* Left: back button + title */}
+          <div className="flex items-center gap-3 min-w-0">
+            <Link href="/" className="flex items-center gap-1.5 text-gray-400 hover:text-white transition-colors shrink-0 border border-white/10 rounded-lg px-2.5 py-1.5 hover:bg-white/10">
+              <span className="text-sm">←</span>
+              <span className="text-xs font-medium hidden sm:inline">Accueil</span>
+            </Link>
+            <div className="relative w-7 h-7 shrink-0">
               <Image src="/logo.png" alt="MBA" fill className="object-contain" />
             </div>
-            <div>
-              <div className="text-[10px] text-gray-400 uppercase tracking-widest">Encours total</div>
-              <div className="text-xl font-bold text-amber-400 leading-tight">{formatCHF(totalToday)}</div>
+            <div className="min-w-0">
+              <div className="text-sm font-bold text-white leading-tight">Hypothèques</div>
+              <div className="text-[11px] text-gray-400 hidden sm:block">
+                {TODAY.toLocaleDateString("fr-CH", { day: "2-digit", month: "long", year: "numeric" })}
+                {excludedIds.size > 0 && <span className="ml-2 text-amber-400 font-semibold">· {excludedIds.size} exclu{excludedIds.size > 1 ? "s" : ""}</span>}
+              </div>
             </div>
           </div>
-          {excludedIds.size > 0 && (
-            <button onClick={() => setExcludedIds(new Set())} className="text-xs rounded-full bg-white/10 text-amber-400 px-3 py-1.5 font-semibold border border-white/10">
-              ↺
-            </button>
-          )}
-        </header>
 
-        {/* Scrollable content */}
-        <main className="flex-1 overflow-y-auto px-4 md:px-6 py-5 pb-24 md:pb-6">
-          <SummarySection activeMortgages={activeMortgages} />
-
-          {/* Hint */}
-          <div className="mb-4 rounded-xl bg-amber-50 border border-amber-200 px-3 py-2.5 text-[11px] text-amber-700 flex items-start gap-2">
-            <span>💡</span>
-            <span className="md:hidden">Ouvrez une fiche et appuyez sur « Exclure des totaux » pour retirer un bien du calcul.</span>
-            <span className="hidden md:inline">Cliquez sur une ligne du tableau pour l'exclure des totaux. Cliquez à nouveau pour la réinclure.</span>
+          {/* Right: total + reset */}
+          <div className="flex items-center gap-2 shrink-0">
+            {excludedIds.size > 0 && (
+              <button onClick={() => setExcludedIds(new Set())} className="text-xs rounded-full bg-amber-400/20 text-amber-400 px-3 py-1.5 font-semibold border border-amber-400/30 hover:bg-amber-400/30 transition-colors">
+                ↺ <span className="hidden sm:inline">Réinitialiser</span>
+              </button>
+            )}
+            <div className="text-right">
+              <div className="text-[10px] text-gray-500 uppercase tracking-wide">Encours</div>
+              <div className="text-base font-bold text-amber-400 leading-tight">{formatCHF(totalToday)}</div>
+            </div>
           </div>
+        </div>
+      </header>
 
-          {/* Company filter */}
-          <div className="flex gap-2 mb-5 overflow-x-auto pb-1">
-            <FilterBtn label="Toutes les sociétés" active={activeCompany === null} onClick={() => setActiveCompany(null)} />
-            {companies.map(c => (
-              <FilterBtn key={c} label={c} active={activeCompany === c} onClick={() => setActiveCompany(activeCompany === c ? null : c)} />
-            ))}
-          </div>
+      {/* ══ Content ══ */}
+      <main className="max-w-screen-2xl mx-auto px-4 md:px-6 py-5 pb-8">
+        <SummarySection activeMortgages={activeMortgages} />
 
-          {/* Active contracts */}
-          <div className="mb-2 flex items-baseline gap-2">
-            <h2 className="text-base font-bold text-gray-900">Contrats actifs</h2>
-            <span className="text-xs text-gray-400">Gestion des engagements et échéances</span>
-          </div>
+        {/* Hint */}
+        <div className="mb-4 rounded-xl bg-amber-50 border border-amber-200 px-3 py-2.5 text-[11px] text-amber-700 flex items-start gap-2">
+          <span>💡</span>
+          <span className="md:hidden">Ouvrez une fiche et appuyez sur « Exclure des totaux » pour retirer un bien du calcul.</span>
+          <span className="hidden md:inline">Cliquez sur une ligne du tableau pour l'exclure des totaux. Cliquez à nouveau pour la réinclure.</span>
+        </div>
 
-          {visible.map(c => (
-            <CompanySection key={c} company={c} excludedIds={excludedIds} onToggle={toggleExclude} />
+        {/* Company filter */}
+        <div className="flex gap-2 mb-5 overflow-x-auto pb-1">
+          <FilterBtn label="Toutes les sociétés" active={activeCompany === null} onClick={() => setActiveCompany(null)} />
+          {companies.map(c => (
+            <FilterBtn key={c} label={c} active={activeCompany === c} onClick={() => setActiveCompany(activeCompany === c ? null : c)} />
           ))}
+        </div>
 
-          <div className="rounded-2xl bg-white border border-gray-200 p-4 mt-2 text-xs text-gray-500 leading-relaxed shadow-sm">
-            <strong className="text-gray-700">Note — Taux Saron Flex :</strong> Les intérêts pour les contrats à taux variable utilisent uniquement la marge indiquée. Le taux Saron réel peut varier — les montants sont une estimation minimale.
-          </div>
-          <div className="mt-4 pb-2 text-center text-[11px] text-gray-400">
-            MBA Groupe SA · Données au {TODAY.toLocaleDateString("fr-CH")} · Financial data managed internally
-          </div>
-        </main>
-      </div>
+        {/* Active contracts title */}
+        <div className="mb-3 flex items-baseline gap-2">
+          <h2 className="text-base font-bold text-gray-900">Contrats actifs</h2>
+          <span className="text-xs text-gray-400">Gestion des engagements et échéances</span>
+        </div>
 
-      {/* ══ Mobile bottom nav ══ */}
-      <nav className="md:hidden fixed bottom-0 inset-x-0 bg-white border-t border-gray-200 flex z-20 shadow-lg">
-        <MobileTab icon="📊" label="Aperçu" active />
-        <MobileTab icon="🏦" label="Hypothèques" />
-        <MobileTab icon="🏠" label="Biens" />
-        <MobileTab icon="📋" label="Rapports" />
-      </nav>
+        {visible.map(c => (
+          <CompanySection key={c} company={c} excludedIds={excludedIds} onToggle={toggleExclude} />
+        ))}
+
+        <div className="rounded-2xl bg-white border border-gray-200 p-4 mt-2 text-xs text-gray-500 leading-relaxed shadow-sm">
+          <strong className="text-gray-700">Note — Taux Saron Flex :</strong> Les intérêts pour les contrats à taux variable utilisent uniquement la marge indiquée. Le taux Saron réel peut varier — les montants sont une estimation minimale.
+        </div>
+        <div className="mt-4 pb-2 text-center text-[11px] text-gray-400">
+          MBA Groupe SA · Données au {TODAY.toLocaleDateString("fr-CH")}
+        </div>
+      </main>
     </div>
   );
 }
