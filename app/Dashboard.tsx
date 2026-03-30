@@ -1,10 +1,9 @@
 "use client";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
-  mortgages,
-  companies,
+  mortgages as defaultMortgages,
   formatCHF,
   formatDate,
   calcRemainingInterest,
@@ -18,7 +17,28 @@ import {
   ratio,
   TODAY,
   type Mortgage,
+  type RateType,
 } from "./data";
+
+// ── localStorage keys ─────────────────────────────────────────────────────────
+const KEY_CUSTOM  = "mba_custom_mortgages";
+const KEY_EDITS   = "mba_mortgage_edits";
+const KEY_DELETED = "mba_deleted_ids";
+
+function loadJSON<T>(key: string, fallback: T): T {
+  if (typeof window === "undefined") return fallback;
+  try { return JSON.parse(localStorage.getItem(key) ?? "null") ?? fallback; }
+  catch { return fallback; }
+}
+
+function saveJSON(key: string, value: unknown) {
+  localStorage.setItem(key, JSON.stringify(value));
+}
+
+function generateId(): string {
+  const r = () => String(Math.floor(Math.random() * 900) + 100);
+  return `${r()}.${r()}.${r()}.${Math.floor(Math.random() * 9) + 1}`;
+}
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 function totalPropertyValue(ms: Mortgage[]): number {
@@ -31,26 +51,22 @@ function totalPropertyValue(ms: Mortgage[]): number {
   }
   return total;
 }
-function eff(m: Mortgage, value: number): number { return value * ratio(m); }
+function eff(m: Mortgage, value: number) { return value * ratio(m); }
 
 // ── Status badge ──────────────────────────────────────────────────────────────
 function StatusBadge({ m }: { m: Mortgage }) {
-  if (isExpired(m))
-    return <span className="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-[11px] font-bold text-red-700 uppercase tracking-wide">Expiré</span>;
-  if (isExpiringSoon(m))
-    return <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-700 uppercase tracking-wide">Bientôt</span>;
+  if (isExpired(m))    return <span className="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-[11px] font-bold text-red-700 uppercase tracking-wide">Expiré</span>;
+  if (isExpiringSoon(m)) return <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-700 uppercase tracking-wide">Bientôt</span>;
   return <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-bold text-emerald-700 uppercase tracking-wide">Actif</span>;
 }
 
-// ── LTV bar ───────────────────────────────────────────────────────────────────
 function LtvBar({ value }: { value: number }) {
   const color = value > 80 ? "bg-red-500" : value > 66 ? "bg-amber-400" : "bg-amber-500";
-  const textColor = value > 80 ? "text-red-600" : value > 66 ? "text-amber-600" : "text-amber-600";
+  const textColor = value > 80 ? "text-red-600" : "text-amber-600";
   return (
     <div>
       <div className="flex justify-between text-[11px] text-gray-400 mb-1">
-        <span>LTV</span>
-        <span className={`font-bold ${textColor}`}>{value.toFixed(1)}%</span>
+        <span>LTV</span><span className={`font-bold ${textColor}`}>{value.toFixed(1)}%</span>
       </div>
       <div className="h-1.5 w-full rounded-full bg-gray-200">
         <div className={`h-1.5 rounded-full ${color}`} style={{ width: `${Math.min(value, 100)}%` }} />
@@ -59,15 +75,17 @@ function LtvBar({ value }: { value: number }) {
   );
 }
 
-// ── Mobile expandable row ─────────────────────────────────────────────────────
-function MobileRow({ m, excluded, onToggle }: { m: Mortgage; excluded: boolean; onToggle: () => void }) {
+// ── Mobile row ────────────────────────────────────────────────────────────────
+function MobileRow({ m, allMortgages, excluded, onToggle, onEdit }: {
+  m: Mortgage; allMortgages: Mortgage[]; excluded: boolean; onToggle: () => void; onEdit: () => void;
+}) {
   const [open, setOpen] = useState(false);
   const annualInterest = calcAnnualInterest(m);
-  const remInterest = calcRemainingInterest(m);
-  const totalInterest = calcTotalInterestFullPeriod(m);
-  const ltvVal = ltv(m);
-  const yrs = yearsRemaining(m);
-  const rent = annualRent(m);
+  const remInterest    = calcRemainingInterest(m);
+  const totalInterest  = calcTotalInterestFullPeriod(m);
+  const ltvVal         = ltv(m, allMortgages);
+  const yrs            = yearsRemaining(m);
+  const rent           = annualRent(m);
 
   const leftBorder = excluded ? "border-l-gray-300"
     : isExpired(m) ? "border-l-red-400"
@@ -86,34 +104,16 @@ function MobileRow({ m, excluded, onToggle }: { m: Mortgage; excluded: boolean; 
             </div>
           </div>
           <div className="shrink-0 flex flex-col items-end gap-1.5">
-            {excluded
-              ? <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-bold text-gray-500 uppercase">Exclu</span>
-              : <StatusBadge m={m} />}
+            {excluded ? <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-bold text-gray-500 uppercase">Exclu</span> : <StatusBadge m={m} />}
             <span className="text-[10px] text-gray-400">{open ? "▲" : "▼"}</span>
           </div>
         </div>
         {!excluded && (
           <div className="grid grid-cols-2 gap-2 mt-3">
-            <div>
-              <div className="text-[10px] text-gray-400 uppercase tracking-wide">Solde actuel</div>
-              <div className="text-sm font-bold text-gray-900 mt-0.5">{formatCHF(eff(m, m.remainingToday))}</div>
-            </div>
-            <div>
-              <div className="text-[10px] text-gray-400 uppercase tracking-wide">Intérêts annuels</div>
-              <div className="text-sm font-bold text-amber-600 mt-0.5">{formatCHF(annualInterest)}</div>
-            </div>
-            {rent > 0 && (
-              <div>
-                <div className="text-[10px] text-gray-400 uppercase tracking-wide">Loyer annuel</div>
-                <div className="text-sm font-bold text-emerald-700 mt-0.5">{formatCHF(rent)}</div>
-              </div>
-            )}
-            <div>
-              <div className="text-[10px] text-gray-400 uppercase tracking-wide">Taux</div>
-              <div className="text-sm font-bold text-gray-700 mt-0.5">
-                {m.rateType === "saron" ? `S+${m.rate}%` : `${m.rate.toFixed(2)}%`}
-              </div>
-            </div>
+            <div><div className="text-[10px] text-gray-400 uppercase tracking-wide">Solde actuel</div><div className="text-sm font-bold text-gray-900 mt-0.5">{formatCHF(eff(m, m.remainingToday))}</div></div>
+            <div><div className="text-[10px] text-gray-400 uppercase tracking-wide">Intérêts annuels</div><div className="text-sm font-bold text-amber-600 mt-0.5">{formatCHF(annualInterest)}</div></div>
+            {rent > 0 && <div><div className="text-[10px] text-gray-400 uppercase tracking-wide">Loyer annuel</div><div className="text-sm font-bold text-emerald-700 mt-0.5">{formatCHF(rent)}</div></div>}
+            <div><div className="text-[10px] text-gray-400 uppercase tracking-wide">Taux</div><div className="text-sm font-bold text-gray-700 mt-0.5">{m.rateType === "saron" ? `S+${m.rate}%` : `${m.rate.toFixed(2)}%`}</div></div>
           </div>
         )}
         {!excluded && ltvVal !== null && <div className="mt-3"><LtvBar value={ltvVal} /></div>}
@@ -121,29 +121,29 @@ function MobileRow({ m, excluded, onToggle }: { m: Mortgage; excluded: boolean; 
       {open && (
         <div className="bg-stone-50 border-t border-gray-100 px-4 py-4">
           <div className="grid grid-cols-2 gap-x-6 gap-y-2.5 mb-4">
-            <Field label="Montant initial" value={formatCHF(eff(m, m.totalAmount))} />
-            <Field label="Solde à l'échéance" value={formatCHF(eff(m, m.remainingAtEnd))} />
-            <Field label="Début" value={formatDate(m.startDate)} />
-            <Field label="Fin" value={formatDate(m.endDate)} />
-            <Field label="Durée restante" value={yrs > 0 ? `${yrs.toFixed(1)} ans` : "Expiré"} />
-            <Field label="Amort. annuel" value={m.annualAmortization > 0 ? formatCHF(eff(m, m.annualAmortization)) : "–"} />
-            <Field label="Intérêts annuels" value={formatCHF(annualInterest)} gold />
-            <Field label="Intérêts restants" value={formatCHF(remInterest)} gold />
-            <Field label="Intérêts totaux (contrat)" value={formatCHF(totalInterest)} />
+            <Field label="Montant initial"         value={formatCHF(eff(m, m.totalAmount))} />
+            <Field label="Solde à l'échéance"      value={formatCHF(eff(m, m.remainingAtEnd))} />
+            <Field label="Début"                   value={formatDate(m.startDate)} />
+            <Field label="Fin"                     value={formatDate(m.endDate)} />
+            <Field label="Durée restante"          value={yrs > 0 ? `${yrs.toFixed(1)} ans` : "Expiré"} />
+            <Field label="Amort. annuel"           value={m.annualAmortization > 0 ? formatCHF(eff(m, m.annualAmortization)) : "–"} />
+            <Field label="Intérêts annuels"        value={formatCHF(annualInterest)} gold />
+            <Field label="Intérêts restants"       value={formatCHF(remInterest)} gold />
+            <Field label="Intérêts totaux contrat" value={formatCHF(totalInterest)} />
             {rent > 0 && <>
-              <Field label="Loyer mensuel" value={formatCHF(m.monthlyRent!)} green />
+              <Field label="Loyer mensuel"   value={formatCHF(m.monthlyRent!)} green />
               <Field label="Loyer net annuel" value={formatCHF(Math.round(rent * 0.9))} green />
             </>}
             {m.propertyValue && <Field label="Valeur du bien" value={formatCHF(eff(m, m.propertyValue))} />}
           </div>
-          <button
-            onClick={e => { e.stopPropagation(); onToggle(); }}
-            className={`w-full rounded-xl py-2.5 text-xs font-bold border transition-colors ${
-              excluded ? "bg-amber-50 text-amber-700 border-amber-200" : "bg-red-50 text-red-600 border-red-200"
-            }`}
-          >
-            {excluded ? "✓ Réinclure dans les totaux" : "✕ Exclure des totaux"}
-          </button>
+          <div className="flex gap-2">
+            <button onClick={e => { e.stopPropagation(); onEdit(); }} className="flex-1 rounded-xl py-2.5 text-xs font-bold border bg-black text-amber-400 border-black">
+              ✏ Modifier
+            </button>
+            <button onClick={e => { e.stopPropagation(); onToggle(); }} className={`flex-1 rounded-xl py-2.5 text-xs font-bold border transition-colors ${excluded ? "bg-amber-50 text-amber-700 border-amber-200" : "bg-red-50 text-red-600 border-red-200"}`}>
+              {excluded ? "✓ Réinclure" : "✕ Exclure"}
+            </button>
+          </div>
         </div>
       )}
     </div>
@@ -160,80 +160,78 @@ function Field({ label, value, gold, green }: { label: string; value: string; go
 }
 
 // ── Desktop table row ─────────────────────────────────────────────────────────
-function TableRow({ m, idx, excluded, onToggle }: { m: Mortgage; idx: number; excluded: boolean; onToggle: () => void }) {
+function TableRow({ m, idx, allMortgages, excluded, onToggle, onEdit }: {
+  m: Mortgage; idx: number; allMortgages: Mortgage[]; excluded: boolean; onToggle: () => void; onEdit: () => void;
+}) {
   const remInterest = calcRemainingInterest(m);
-  const ltvVal = ltv(m);
-  const yrs = yearsRemaining(m);
+  const ltvVal      = ltv(m, allMortgages);
+  const yrs         = yearsRemaining(m);
 
   return (
-    <tr
-      onClick={onToggle}
-      title={excluded ? "Cliquer pour réinclure" : "Cliquer pour exclure"}
-      className={`border-b border-gray-100 cursor-pointer transition-all select-none text-sm ${
-        excluded ? "opacity-30 hover:opacity-50"
-        : idx % 2 === 0 ? "bg-white hover:bg-amber-50/40"
-        : "bg-stone-50 hover:bg-amber-50/40"
-      }`}
-    >
-      <td className="px-4 py-3">
+    <tr className={`border-b border-gray-100 select-none text-sm transition-all ${
+      excluded ? "opacity-30" : idx % 2 === 0 ? "bg-white" : "bg-stone-50"
+    }`}>
+      {/* Edit button */}
+      <td className="px-2 py-3 w-8">
+        <button onClick={onEdit} title="Modifier" className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-400 hover:bg-amber-100 hover:text-amber-700 transition-colors">
+          ✏
+        </button>
+      </td>
+      {/* Label */}
+      <td className="px-3 py-3 cursor-pointer hover:bg-amber-50/40" onClick={onToggle} title={excluded ? "Réinclure" : "Exclure"}>
         <div className={`font-semibold leading-snug ${excluded ? "line-through text-gray-400" : "text-gray-900"}`}>{m.label}</div>
         <div className="flex items-center gap-1.5 mt-0.5">
           <span className="text-[11px] text-gray-400 font-mono">{m.id}</span>
           {m.shared && <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-700">50% MBA</span>}
         </div>
       </td>
-      <td className="px-4 py-3 text-center">
+      <td className="px-3 py-3 text-center">
         {excluded ? <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-bold text-gray-500 uppercase">Exclu</span> : <StatusBadge m={m} />}
       </td>
-      <td className={`px-4 py-3 text-right font-mono ${excluded ? "text-gray-400" : "text-gray-700"}`}>
+      <td className={`px-3 py-3 text-right font-mono ${excluded ? "text-gray-400" : "text-gray-700"}`}>
         {formatCHF(eff(m, m.totalAmount))}
         {m.shared && <div className="text-[11px] text-gray-400">({formatCHF(m.totalAmount)})</div>}
       </td>
-      <td className="px-4 py-3 text-center">
+      <td className="px-3 py-3 text-center">
         {m.rateType === "saron"
           ? <span className="rounded-md bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-800">Saron +{m.rate}%</span>
           : <span className="rounded-md bg-gray-100 px-2 py-0.5 text-[11px] font-bold text-gray-700">{m.rate.toFixed(2)}% fixe</span>}
       </td>
-      <td className="px-4 py-3 text-center text-[11px] text-gray-500">
+      <td className="px-3 py-3 text-center text-[11px] text-gray-500">
         <div>{formatDate(m.startDate)}</div>
         <div className="font-bold text-gray-900 text-xs">{formatDate(m.endDate)}</div>
         <div className="mt-0.5">{yrs > 0 ? `${yrs.toFixed(1)} ans` : "—"}</div>
       </td>
-      <td className={`px-4 py-3 text-right font-mono ${excluded ? "text-gray-400" : "text-gray-600"}`}>
+      <td className={`px-3 py-3 text-right font-mono ${excluded ? "text-gray-400" : "text-gray-600"}`}>
         {m.annualAmortization > 0 ? formatCHF(eff(m, m.annualAmortization)) : "—"}
       </td>
-      <td className={`px-4 py-3 text-right font-mono font-bold ${excluded ? "text-gray-400" : "text-gray-900"}`}>
+      <td className={`px-3 py-3 text-right font-mono font-bold ${excluded ? "text-gray-400" : "text-gray-900"}`}>
         {formatCHF(eff(m, m.remainingToday))}
         {m.shared && <div className="text-[11px] font-normal text-gray-400">({formatCHF(m.remainingToday)})</div>}
       </td>
-      <td className={`px-4 py-3 text-right font-mono ${excluded ? "text-gray-400" : "text-gray-500"}`}>
+      <td className={`px-3 py-3 text-right font-mono ${excluded ? "text-gray-400" : "text-gray-500"}`}>
         {formatCHF(eff(m, m.remainingAtEnd))}
       </td>
-      <td className={`px-4 py-3 text-right font-mono font-semibold ${excluded ? "text-gray-400" : "text-amber-600"}`}>
+      <td className={`px-3 py-3 text-right font-mono font-semibold ${excluded ? "text-gray-400" : "text-amber-600"}`}>
         {formatCHF(calcAnnualInterest(m))}
       </td>
-      <td className={`px-4 py-3 text-right font-mono ${excluded ? "text-gray-400" : "text-gray-500"}`}>
+      <td className={`px-3 py-3 text-right font-mono ${excluded ? "text-gray-400" : "text-gray-500"}`}>
         {formatCHF(remInterest)}
       </td>
-      <td className="px-4 py-3 text-right text-[11px]">
+      <td className="px-3 py-3 text-right text-[11px]">
         {m.propertyValue ? (
           <>
             <div className={`font-mono ${excluded ? "text-gray-400" : "text-gray-700"}`}>{formatCHF(eff(m, m.propertyValue))}</div>
-            {m.shared && <div className="text-gray-400">({formatCHF(m.propertyValue)})</div>}
-            {ltvVal !== null && !excluded && (
-              <div className={`font-bold mt-0.5 ${ltvVal > 80 ? "text-red-600" : ltvVal > 66 ? "text-amber-600" : "text-amber-500"}`}>
-                LTV {ltvVal.toFixed(0)}%
-              </div>
-            )}
+            {ltvVal !== null && !excluded && <div className={`font-bold mt-0.5 ${ltvVal > 80 ? "text-red-600" : "text-amber-600"}`}>LTV {ltvVal.toFixed(0)}%</div>}
           </>
         ) : "—"}
       </td>
-      <td className="px-4 py-3 text-right text-[11px]">
+      <td className="px-3 py-3 text-right text-[11px]">
         {(m.monthlyRent ?? 0) > 0 ? (
           <>
             <div className={`font-mono font-semibold ${excluded ? "text-gray-400" : "text-emerald-700"}`}>{formatCHF(annualRent(m))}</div>
             <div className="text-gray-400 font-mono">{formatCHF(m.monthlyRent!)}/mois</div>
-            <div className="text-red-500 font-mono mt-0.5">–{formatCHF(Math.round(annualRent(m) * 0.1))}</div>
+            <div className="text-red-500 font-mono">–{formatCHF(Math.round(annualRent(m) * 0.1))}</div>
           </>
         ) : <span className="text-gray-300">—</span>}
       </td>
@@ -242,110 +240,105 @@ function TableRow({ m, idx, excluded, onToggle }: { m: Mortgage; idx: number; ex
 }
 
 // ── Company section ───────────────────────────────────────────────────────────
-function CompanySection({ company, excludedIds, onToggle }: {
-  company: string; excludedIds: Set<string>; onToggle: (id: string) => void;
+function CompanySection({ company, allMortgages, excludedIds, onToggle, onEdit, onNew }: {
+  company: string; allMortgages: Mortgage[]; excludedIds: Set<string>;
+  onToggle: (id: string) => void; onEdit: (m: Mortgage) => void; onNew: (company: string) => void;
 }) {
-  const allItems = mortgages.filter(m => m.company === company);
+  const allItems    = allMortgages.filter(m => m.company === company);
   const activeItems = allItems.filter(m => !excludedIds.has(m.id));
 
-  const totalInitial  = activeItems.reduce((s, m) => s + eff(m, m.totalAmount), 0);
-  const totalToday    = activeItems.reduce((s, m) => s + eff(m, m.remainingToday), 0);
-  const totalEnd      = activeItems.reduce((s, m) => s + eff(m, m.remainingAtEnd), 0);
-  const totalIntA     = activeItems.reduce((s, m) => s + calcAnnualInterest(m), 0);
-  const totalIntRem   = activeItems.reduce((s, m) => s + calcRemainingInterest(m), 0);
-  const totalIntFull  = activeItems.reduce((s, m) => s + calcTotalInterestFullPeriod(m), 0);
-  const totalAmort    = activeItems.reduce((s, m) => s + eff(m, m.annualAmortization), 0);
-  const totalRent     = activeItems.reduce((s, m) => s + annualRent(m), 0);
-  const totalCharges  = Math.round(totalRent * 0.1);
-  const propValue     = totalPropertyValue(activeItems);
-  const expiredCount  = activeItems.filter(isExpired).length;
-  const soonCount     = activeItems.filter(isExpiringSoon).length;
+  const totalInitial = activeItems.reduce((s, m) => s + eff(m, m.totalAmount), 0);
+  const totalToday   = activeItems.reduce((s, m) => s + eff(m, m.remainingToday), 0);
+  const totalEnd     = activeItems.reduce((s, m) => s + eff(m, m.remainingAtEnd), 0);
+  const totalIntA    = activeItems.reduce((s, m) => s + calcAnnualInterest(m), 0);
+  const totalIntRem  = activeItems.reduce((s, m) => s + calcRemainingInterest(m), 0);
+  const totalIntFull = activeItems.reduce((s, m) => s + calcTotalInterestFullPeriod(m), 0);
+  const totalAmort   = activeItems.reduce((s, m) => s + eff(m, m.annualAmortization), 0);
+  const totalRent    = activeItems.reduce((s, m) => s + annualRent(m), 0);
+  const totalCharges = Math.round(totalRent * 0.1);
+  const propValue    = totalPropertyValue(activeItems);
+  const expiredCount = activeItems.filter(isExpired).length;
+  const soonCount    = activeItems.filter(isExpiringSoon).length;
   const excludedCount = allItems.length - activeItems.length;
 
   return (
     <section className="mb-6 rounded-2xl overflow-hidden border border-gray-200 shadow-md bg-white">
-
-      {/* ── Black header ── */}
+      {/* Header */}
       <div className="bg-black px-5 py-4">
-        <div className="flex items-start justify-between gap-3 mb-4">
+        <div className="flex items-center justify-between gap-3 mb-3">
           <div>
-            <h2 className="text-sm font-bold text-white leading-snug">{company}</h2>
-            <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+            <h2 className="text-sm font-bold text-white">{company}</h2>
+            <div className="flex flex-wrap items-center gap-1.5 mt-1">
               <span className="text-[11px] text-gray-400">{activeItems.length}/{allItems.length} hypothèque{allItems.length > 1 ? "s" : ""}</span>
               {excludedCount > 0 && <span className="rounded-full bg-white/10 px-2 py-0.5 text-[11px] text-gray-300">{excludedCount} exclu{excludedCount > 1 ? "s" : ""}</span>}
               {expiredCount > 0 && <span className="rounded-full bg-red-900/60 px-2 py-0.5 text-[11px] text-red-300">⚠ {expiredCount} expiré{expiredCount > 1 ? "s" : ""}</span>}
               {soonCount > 0 && <span className="rounded-full bg-amber-900/60 px-2 py-0.5 text-[11px] text-amber-300">⏳ {soonCount} bientôt</span>}
             </div>
           </div>
+          <button onClick={() => onNew(company)} className="shrink-0 flex items-center gap-1.5 bg-amber-400 hover:bg-amber-300 text-black rounded-xl px-3 py-1.5 text-xs font-bold transition-colors">
+            + Ajouter
+          </button>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-          <HeaderStat label="Solde actuel" value={formatCHF(totalToday)} gold />
+          <HeaderStat label="Solde actuel"    value={formatCHF(totalToday)} gold />
           <HeaderStat label="Intérêts annuels" value={formatCHF(totalIntA)} />
           {totalRent > 0 && <HeaderStat label="Loyers annuels" value={formatCHF(totalRent)} green />}
           {propValue > 0 && <HeaderStat label="Valeur des biens" value={formatCHF(propValue)} />}
         </div>
       </div>
 
-      {/* ── Mobile rows ── */}
+      {/* Mobile */}
       <div className="md:hidden divide-y divide-gray-100">
         {allItems.map(m => (
-          <MobileRow key={m.id} m={m} excluded={excludedIds.has(m.id)} onToggle={() => onToggle(m.id)} />
+          <MobileRow key={m.id} m={m} allMortgages={allMortgages} excluded={excludedIds.has(m.id)} onToggle={() => onToggle(m.id)} onEdit={() => onEdit(m)} />
         ))}
-        {/* Mobile totals */}
         <div className="bg-gray-900 px-4 py-4">
           <div className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-3">
             Sous-total — {activeItems.length}{excludedCount > 0 ? `/${allItems.length}` : ""} contrat{allItems.length > 1 ? "s" : ""}
           </div>
           <div className="grid grid-cols-2 gap-2">
-            <MiniTotal label="Montant initial" value={formatCHF(totalInitial)} />
-            <MiniTotal label="Solde aujourd'hui" value={formatCHF(totalToday)} gold />
-            <MiniTotal label="Solde à la fin" value={formatCHF(totalEnd)} />
-            <MiniTotal label="Intérêts annuels" value={formatCHF(totalIntA)} gold />
+            <MiniTotal label="Montant initial"    value={formatCHF(totalInitial)} />
+            <MiniTotal label="Solde aujourd'hui"  value={formatCHF(totalToday)} gold />
+            <MiniTotal label="Solde à la fin"     value={formatCHF(totalEnd)} />
+            <MiniTotal label="Intérêts annuels"   value={formatCHF(totalIntA)} gold />
             {propValue > 0 && <MiniTotal label="Valeur des biens" value={formatCHF(propValue)} />}
-            {propValue > 0 && <MiniTotal label="Fonds propres" value={formatCHF(propValue - totalToday)} green />}
-            {totalRent > 0 && <MiniTotal label="Loyers annuels" value={formatCHF(totalRent)} green />}
-            {totalRent > 0 && <MiniTotal label="Charges (10%)" value={`–${formatCHF(totalCharges)}`} />}
+            {propValue > 0 && <MiniTotal label="Fonds propres"    value={formatCHF(propValue - totalToday)} green />}
+            {totalRent > 0 && <MiniTotal label="Loyers annuels"   value={formatCHF(totalRent)} green />}
+            {totalRent > 0 && <MiniTotal label="Charges (10%)"    value={`–${formatCHF(totalCharges)}`} />}
           </div>
         </div>
       </div>
 
-      {/* ── Desktop table ── */}
+      {/* Desktop table */}
       <div className="hidden md:block overflow-x-auto">
         <table className="w-full min-w-[1100px]">
           <thead>
             <tr className="bg-stone-50 border-b border-gray-200 text-[11px] text-gray-400 uppercase tracking-wide">
+              <th className="w-8 px-2 py-3" />
               {["Bien / Contrat", "Statut", "Montant initial", "Taux", "Période", "Amort. annuel", "Solde actuel", "Solde fin contrat", "Intérêts annuels", "Intérêts restants", "Valeur / LTV", "Loyers annuels"].map((h, i) => (
-                <th key={h} className={`px-4 py-3 font-semibold ${i === 0 ? "text-left" : i <= 1 ? "text-center" : "text-right"}`}>{h}</th>
+                <th key={h} className={`px-3 py-3 font-semibold ${i === 0 ? "text-left" : i <= 1 ? "text-center" : "text-right"}`}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {allItems.map((m, i) => (
-              <TableRow key={m.id} m={m} idx={i} excluded={excludedIds.has(m.id)} onToggle={() => onToggle(m.id)} />
+              <TableRow key={m.id} m={m} idx={i} allMortgages={allMortgages} excluded={excludedIds.has(m.id)} onToggle={() => onToggle(m.id)} onEdit={() => onEdit(m)} />
             ))}
-            {/* Subtotal row */}
             <tr className="bg-black text-white text-sm font-bold border-t-2 border-amber-500">
-              <td className="px-4 py-3" colSpan={2}>
-                Sous-total — {activeItems.length}{excludedCount > 0 ? `/${allItems.length}` : ""} contrat{allItems.length > 1 ? "s" : ""}
-              </td>
-              <td className="px-4 py-3 text-right font-mono text-gray-300">{formatCHF(totalInitial)}</td>
+              <td />
+              <td className="px-3 py-3" colSpan={2}>Sous-total — {activeItems.length}{excludedCount > 0 ? `/${allItems.length}` : ""} contrat{allItems.length > 1 ? "s" : ""}</td>
+              <td className="px-3 py-3 text-right font-mono text-gray-300">{formatCHF(totalInitial)}</td>
               <td /><td />
-              <td className="px-4 py-3 text-right font-mono text-gray-300">{totalAmort > 0 ? formatCHF(totalAmort) : "—"}</td>
-              <td className="px-4 py-3 text-right font-mono text-amber-400">{formatCHF(totalToday)}</td>
-              <td className="px-4 py-3 text-right font-mono text-gray-400">{formatCHF(totalEnd)}</td>
-              <td className="px-4 py-3 text-right font-mono text-amber-400">{formatCHF(totalIntA)}</td>
-              <td className="px-4 py-3 text-right font-mono text-gray-400">{formatCHF(totalIntRem)}</td>
-              <td className="px-4 py-3 text-right font-mono">
-                {propValue > 0 ? <>
-                  <div className="text-gray-300">{formatCHF(propValue)}</div>
-                  <div className="text-xs font-normal text-emerald-400">+{formatCHF(propValue - totalToday)}</div>
-                </> : "—"}
+              <td className="px-3 py-3 text-right font-mono text-gray-300">{totalAmort > 0 ? formatCHF(totalAmort) : "—"}</td>
+              <td className="px-3 py-3 text-right font-mono text-amber-400">{formatCHF(totalToday)}</td>
+              <td className="px-3 py-3 text-right font-mono text-gray-400">{formatCHF(totalEnd)}</td>
+              <td className="px-3 py-3 text-right font-mono text-amber-400">{formatCHF(totalIntA)}</td>
+              <td className="px-3 py-3 text-right font-mono text-gray-400">{formatCHF(totalIntRem)}</td>
+              <td className="px-3 py-3 text-right font-mono">
+                {propValue > 0 ? <><div className="text-gray-300">{formatCHF(propValue)}</div><div className="text-xs font-normal text-emerald-400">+{formatCHF(propValue - totalToday)}</div></> : "—"}
               </td>
-              <td className="px-4 py-3 text-right font-mono">
-                {totalRent > 0 ? <>
-                  <div className="text-emerald-400">{formatCHF(totalRent)}</div>
-                  <div className="text-xs font-normal text-red-400">–{formatCHF(totalCharges)}</div>
-                </> : "—"}
+              <td className="px-3 py-3 text-right font-mono">
+                {totalRent > 0 ? <><div className="text-emerald-400">{formatCHF(totalRent)}</div><div className="text-xs font-normal text-red-400">–{formatCHF(totalCharges)}</div></> : "—"}
               </td>
             </tr>
           </tbody>
@@ -363,7 +356,6 @@ function HeaderStat({ label, value, gold, green }: { label: string; value: strin
     </div>
   );
 }
-
 function MiniTotal({ label, value, gold, green }: { label: string; value: string; gold?: boolean; green?: boolean }) {
   return (
     <div className="rounded-lg bg-gray-800 px-3 py-2">
@@ -373,12 +365,11 @@ function MiniTotal({ label, value, gold, green }: { label: string; value: string
   );
 }
 
-// ── KPI cards ─────────────────────────────────────────────────────────────────
-function SummarySection({ activeMortgages }: { activeMortgages: Mortgage[] }) {
-  const all = mortgages;
+// ── Summary KPIs ──────────────────────────────────────────────────────────────
+function SummarySection({ activeMortgages, allMortgages }: { activeMortgages: Mortgage[]; allMortgages: Mortgage[] }) {
   const totalInitial  = activeMortgages.reduce((s, m) => s + eff(m, m.totalAmount), 0);
   const totalToday    = activeMortgages.reduce((s, m) => s + eff(m, m.remainingToday), 0);
-  const totalIntAnnual= activeMortgages.reduce((s, m) => s + calcAnnualInterest(m), 0);
+  const totalIntAnnual = activeMortgages.reduce((s, m) => s + calcAnnualInterest(m), 0);
   const totalIntRem   = activeMortgages.reduce((s, m) => s + calcRemainingInterest(m), 0);
   const totalRent     = activeMortgages.reduce((s, m) => s + annualRent(m), 0);
   const totalCharges  = Math.round(totalRent * 0.1);
@@ -388,11 +379,10 @@ function SummarySection({ activeMortgages }: { activeMortgages: Mortgage[] }) {
   const equity        = propValue - totalToday;
   const expiredCount  = activeMortgages.filter(isExpired).length;
   const soonCount     = activeMortgages.filter(isExpiringSoon).length;
-  const excludedCount = all.length - activeMortgages.length;
+  const excludedCount = allMortgages.length - activeMortgages.length;
 
   return (
     <div className="mb-6">
-      {/* Big total */}
       <div className="hidden md:block mb-5">
         <div className="text-xs text-gray-400 uppercase tracking-widest mb-1">Encours total</div>
         <div className="flex items-baseline gap-4">
@@ -400,32 +390,22 @@ function SummarySection({ activeMortgages }: { activeMortgages: Mortgage[] }) {
           <div className="text-sm text-gray-400">sur {formatCHF(totalInitial)} initiaux</div>
         </div>
       </div>
-
-      {/* KPI grid */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <KpiCard label="Valeur des biens" value={formatCHF(propValue)} sub={`LTV moy. ${propValue > 0 ? ((totalToday / propValue) * 100).toFixed(0) : "—"}%`} icon="🏠" />
-        <KpiCard label="Fonds propres" value={formatCHF(equity)} sub={`${propValue > 0 ? ((equity / propValue) * 100).toFixed(0) : "—"}% de la valeur`} icon="💰" green />
-        <KpiCard label="Intérêts annuels" value={formatCHF(totalIntAnnual)} sub={`${formatCHF(totalIntRem)} restants`} icon="💶" gold />
-        <KpiCard label="Amort. annuel" value={formatCHF(totalAmortA)} sub={`${formatCHF(totalAmortQ)} / trimestre`} icon="📉" />
-        <KpiCard label="Loyers annuels" value={formatCHF(totalRent)} sub={`Charges : –${formatCHF(totalCharges)}`} icon="🏘️" green />
-        <KpiCard label="Loyers nets" value={formatCHF(totalRent - totalCharges)} sub="Après charges 10%" icon="✅" green />
-        <KpiCard
-          label="Alertes"
-          value={`${expiredCount + soonCount} contrat${expiredCount + soonCount !== 1 ? "s" : ""}`}
-          sub={`${expiredCount} expiré · ${soonCount} bientôt${excludedCount > 0 ? ` · ${excludedCount} exclu` : ""}`}
-          icon="⚠️"
-          red={expiredCount > 0}
-          amber={!expiredCount && soonCount > 0}
-        />
-        <KpiCard label="Nb. hypothèques" value={`${activeMortgages.length}`} sub={`sur ${all.length} au total`} icon="📋" />
+        <KpiCard label="Valeur des biens"  value={formatCHF(propValue)} sub={`LTV moy. ${propValue > 0 ? ((totalToday / propValue) * 100).toFixed(0) : "—"}%`} icon="🏠" />
+        <KpiCard label="Fonds propres"     value={formatCHF(equity)} sub={`${propValue > 0 ? ((equity / propValue) * 100).toFixed(0) : "—"}% de la valeur`} icon="💰" green />
+        <KpiCard label="Intérêts annuels"  value={formatCHF(totalIntAnnual)} sub={`${formatCHF(totalIntRem)} restants`} icon="💶" gold />
+        <KpiCard label="Amort. annuel"     value={formatCHF(totalAmortA)} sub={`${formatCHF(totalAmortQ)} / trimestre`} icon="📉" />
+        <KpiCard label="Loyers annuels"    value={formatCHF(totalRent)} sub={`Charges : –${formatCHF(totalCharges)}`} icon="🏘️" green />
+        <KpiCard label="Loyers nets"       value={formatCHF(totalRent - totalCharges)} sub="Après charges 10%" icon="✅" green />
+        <KpiCard label="Alertes" value={`${expiredCount + soonCount} contrat${expiredCount + soonCount !== 1 ? "s" : ""}`} sub={`${expiredCount} expiré · ${soonCount} bientôt${excludedCount > 0 ? ` · ${excludedCount} exclu` : ""}`} icon="⚠️" red={expiredCount > 0} amber={!expiredCount && soonCount > 0} />
+        <KpiCard label="Nb. hypothèques"   value={`${activeMortgages.length}`} sub={`sur ${allMortgages.length} au total`} icon="📋" />
       </div>
     </div>
   );
 }
 
 function KpiCard({ label, value, sub, icon, gold, green, red, amber }: {
-  label: string; value: string; sub: string; icon: string;
-  gold?: boolean; green?: boolean; red?: boolean; amber?: boolean;
+  label: string; value: string; sub: string; icon: string; gold?: boolean; green?: boolean; red?: boolean; amber?: boolean;
 }) {
   const border = red ? "border-red-200 bg-red-50" : amber ? "border-amber-200 bg-amber-50" : gold ? "border-amber-200 bg-amber-50" : green ? "border-emerald-200 bg-emerald-50" : "border-gray-200 bg-white";
   const valColor = red ? "text-red-700" : amber ? "text-amber-700" : gold ? "text-amber-700" : green ? "text-emerald-800" : "text-gray-900";
@@ -440,30 +420,281 @@ function KpiCard({ label, value, sub, icon, gold, green, red, amber }: {
   );
 }
 
-// ── Main ──────────────────────────────────────────────────────────────────────
-export default function Dashboard() {
-  const [activeCompany, setActiveCompany] = useState<string | null>(null);
-  const [excludedIds, setExcludedIds] = useState<Set<string>>(new Set());
+// ── Mortgage form modal ───────────────────────────────────────────────────────
+const emptyForm = (): Mortgage => ({
+  id: generateId(),
+  label: "", company: "",
+  totalAmount: 0, startDate: "", endDate: "",
+  rateType: "fixed", rate: 0,
+  annualAmortization: 0, quarterlyAmortization: 0,
+  remainingAtEnd: 0, remainingToday: 0,
+  propertyValue: null, propertyGroup: "", shared: false, monthlyRent: 0,
+});
 
-  function toggleExclude(id: string) {
-    setExcludedIds(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
+function inputCls(err?: string) {
+  return `w-full px-3 py-2.5 rounded-xl border text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-400 ${err ? "border-red-300" : "border-gray-200"}`;
+}
+
+function MortgageForm({ mortgage, isNew, allMortgages, onSave, onDelete, onClose }: {
+  mortgage: Mortgage; isNew: boolean; allMortgages: Mortgage[];
+  onSave: (m: Mortgage) => void; onDelete: (id: string) => void; onClose: () => void;
+}) {
+  const [form, setForm] = useState<Mortgage>(() => ({ ...mortgage }));
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const allCompanies = useMemo(() => Array.from(new Set(allMortgages.map(m => m.company))), [allMortgages]);
+
+  function set<K extends keyof Mortgage>(field: K, value: Mortgage[K]) {
+    setForm(prev => {
+      const next = { ...prev, [field]: value };
+      if (field === "annualAmortization" && typeof value === "number") {
+        next.quarterlyAmortization = Math.round(value / 4);
+      }
       return next;
     });
+    setErrors(e => { const n = { ...e }; delete n[field as string]; return n; });
   }
 
-  const activeMortgages = mortgages.filter(m => !excludedIds.has(m.id));
-  const totalToday = activeMortgages.reduce((s, m) => s + eff(m, m.remainingToday), 0);
-  const visible = activeCompany ? [activeCompany] : companies;
+  function validate() {
+    const e: Record<string, string> = {};
+    if (!form.label.trim()) e.label = "Requis";
+    if (!form.company.trim()) e.company = "Requis";
+    if (!form.totalAmount || form.totalAmount <= 0) e.totalAmount = "Doit être > 0";
+    if (!form.startDate) e.startDate = "Requis";
+    if (!form.endDate) e.endDate = "Requis";
+    if (form.startDate && form.endDate && form.endDate <= form.startDate) e.endDate = "Doit être après la date de début";
+    if (form.rate < 0) e.rate = "Doit être ≥ 0";
+    setErrors(e);
+    return Object.keys(e).length === 0;
+  }
+
+  function handleSave() {
+    if (!validate()) return;
+    onSave({ ...form, propertyGroup: form.propertyGroup || undefined, monthlyRent: form.monthlyRent ?? 0, propertyValue: form.propertyValue || null });
+  }
+
+  function handleDelete() {
+    if (window.confirm(`Supprimer « ${form.label} » ?\n\nCette action est irréversible.`)) onDelete(form.id);
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-4">
+      <div className="bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl w-full sm:max-w-2xl max-h-[95vh] sm:max-h-[90vh] flex flex-col overflow-hidden">
+        {/* Header */}
+        <div className="bg-black text-white px-5 py-4 flex items-center justify-between shrink-0">
+          <div>
+            <div className="font-bold text-base">{isNew ? "Nouvelle hypothèque" : `Modifier — ${mortgage.label}`}</div>
+            {!isNew && <div className="text-[11px] text-gray-400 mt-0.5 font-mono">{mortgage.id}</div>}
+          </div>
+          <button onClick={onClose} className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 transition-colors text-lg">✕</button>
+        </div>
+
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto p-5 space-y-6">
+          {/* Identification */}
+          <FormSection title="Identification">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <FormField label="Nom du bien *" error={errors.label}>
+                <input type="text" value={form.label} onChange={e => set("label", e.target.value)} placeholder="Ex: Immeuble Dorénaz A1" className={inputCls(errors.label)} />
+              </FormField>
+              <FormField label="Société *" error={errors.company}>
+                <input type="text" list="companies-list" value={form.company} onChange={e => set("company", e.target.value)} placeholder="Sélectionner ou saisir" className={inputCls(errors.company)} />
+                <datalist id="companies-list">{allCompanies.map(c => <option key={c} value={c} />)}</datalist>
+              </FormField>
+            </div>
+          </FormSection>
+
+          {/* Contrat */}
+          <FormSection title="Contrat">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <FormField label="Date de début *" error={errors.startDate}>
+                <input type="date" value={form.startDate} onChange={e => set("startDate", e.target.value)} className={inputCls(errors.startDate)} />
+              </FormField>
+              <FormField label="Date de fin *" error={errors.endDate}>
+                <input type="date" value={form.endDate} onChange={e => set("endDate", e.target.value)} className={inputCls(errors.endDate)} />
+              </FormField>
+              <FormField label="Type de taux">
+                <select value={form.rateType} onChange={e => set("rateType", e.target.value as RateType)} className={inputCls()}>
+                  <option value="fixed">Fixe</option>
+                  <option value="saron">Saron (variable)</option>
+                </select>
+              </FormField>
+              <FormField label={form.rateType === "saron" ? "Marge Saron (%)" : "Taux fixe (%)"} error={errors.rate}>
+                <input type="number" step="0.01" min="0" value={form.rate || ""} onChange={e => set("rate", parseFloat(e.target.value) || 0)} placeholder="0.00" className={inputCls(errors.rate)} />
+              </FormField>
+            </div>
+          </FormSection>
+
+          {/* Montants */}
+          <FormSection title="Montants (CHF)">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <FormField label="Montant initial *" error={errors.totalAmount}>
+                <input type="number" step="1000" min="0" value={form.totalAmount || ""} onChange={e => set("totalAmount", parseFloat(e.target.value) || 0)} placeholder="0" className={inputCls(errors.totalAmount)} />
+              </FormField>
+              <FormField label="Solde aujourd'hui">
+                <input type="number" step="1000" min="0" value={form.remainingToday || ""} onChange={e => set("remainingToday", parseFloat(e.target.value) || 0)} placeholder="0" className={inputCls()} />
+              </FormField>
+              <FormField label="Solde à l'échéance">
+                <input type="number" step="1000" min="0" value={form.remainingAtEnd || ""} onChange={e => set("remainingAtEnd", parseFloat(e.target.value) || 0)} placeholder="0" className={inputCls()} />
+              </FormField>
+            </div>
+          </FormSection>
+
+          {/* Amortissement */}
+          <FormSection title="Amortissement">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <FormField label="Amortissement annuel (CHF)">
+                <input type="number" step="1000" min="0" value={form.annualAmortization || ""} onChange={e => set("annualAmortization", parseFloat(e.target.value) || 0)} placeholder="0" className={inputCls()} />
+              </FormField>
+              <FormField label="Amortissement trimestriel (CHF)">
+                <input type="number" step="250" min="0" value={form.quarterlyAmortization || ""} onChange={e => set("quarterlyAmortization", parseFloat(e.target.value) || 0)} placeholder="Auto (annuel ÷ 4)" className={inputCls()} />
+              </FormField>
+            </div>
+          </FormSection>
+
+          {/* Bien immobilier */}
+          <FormSection title="Bien immobilier">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+              <FormField label="Valeur du bien (CHF)">
+                <input type="number" step="10000" min="0" value={form.propertyValue || ""} onChange={e => set("propertyValue", parseFloat(e.target.value) || null)} placeholder="Optionnel" className={inputCls()} />
+              </FormField>
+              <FormField label="Groupe de biens (optionnel)">
+                <input type="text" value={form.propertyGroup || ""} onChange={e => set("propertyGroup", e.target.value || undefined)} placeholder="Ex: bellini" className={inputCls()} />
+              </FormField>
+            </div>
+            <label className="flex items-center gap-2.5 cursor-pointer">
+              <input type="checkbox" checked={form.shared || false} onChange={e => set("shared", e.target.checked)} className="w-4 h-4 rounded accent-amber-500" />
+              <span className="text-sm text-gray-700">Partagé 50/50 avec Gabriel Borgeat — comptabiliser 50% MBA</span>
+            </label>
+          </FormSection>
+
+          {/* Revenus locatifs */}
+          <FormSection title="Revenus locatifs">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <FormField label="Loyer mensuel (CHF)">
+                <input type="number" step="100" min="0" value={form.monthlyRent || ""} onChange={e => set("monthlyRent", parseFloat(e.target.value) || 0)} placeholder="0 si non loué" className={inputCls()} />
+              </FormField>
+              {(form.monthlyRent ?? 0) > 0 && (
+                <FormField label="Loyer annuel (calculé)">
+                  <div className="px-3 py-2.5 bg-emerald-50 rounded-xl text-sm font-bold text-emerald-700 border border-emerald-200">
+                    {formatCHF(Math.round((form.monthlyRent ?? 0) * 12 * (form.shared ? 0.5 : 1)))} / an
+                  </div>
+                </FormField>
+              )}
+            </div>
+          </FormSection>
+        </div>
+
+        {/* Footer */}
+        <div className={`px-5 py-4 border-t border-gray-100 flex gap-2 shrink-0 ${!isNew ? "justify-between" : "justify-end"}`}>
+          {!isNew && (
+            <button onClick={handleDelete} className="px-4 py-2.5 rounded-xl text-sm font-semibold text-red-600 border border-red-200 bg-red-50 hover:bg-red-100 transition-colors">
+              🗑 Supprimer
+            </button>
+          )}
+          <div className="flex gap-2">
+            <button onClick={onClose} className="px-4 py-2.5 rounded-xl text-sm font-semibold text-gray-600 border border-gray-200 hover:bg-gray-50 transition-colors">
+              Annuler
+            </button>
+            <button onClick={handleSave} className="px-5 py-2.5 rounded-xl text-sm font-bold text-black bg-amber-400 hover:bg-amber-300 transition-colors">
+              {isNew ? "✓ Créer" : "✓ Enregistrer"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FormSection({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <div className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-3 pb-1 border-b border-gray-100">{title}</div>
+      {children}
+    </div>
+  );
+}
+function FormField({ label, error, children }: { label: string; error?: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <label className="block text-xs font-semibold text-gray-600 mb-1.5">{label}</label>
+      {children}
+      {error && <div className="text-[11px] text-red-500 mt-1">⚠ {error}</div>}
+    </div>
+  );
+}
+
+// ── Main ──────────────────────────────────────────────────────────────────────
+export default function Dashboard() {
+  // ── persistent state ──
+  const [customMortgages, setCustomMortgages] = useState<Mortgage[]>(() => loadJSON(KEY_CUSTOM, []));
+  const [mortgageEdits, setMortgageEdits]     = useState<Record<string, Mortgage>>(() => loadJSON(KEY_EDITS, {}));
+  const [deletedIds, setDeletedIds]           = useState<Set<string>>(() => new Set<string>(loadJSON<string[]>(KEY_DELETED, [])));
+
+  // ── merge default + custom ──
+  const allMortgages = useMemo<Mortgage[]>(() => [
+    ...defaultMortgages
+      .filter(m => !deletedIds.has(m.id))
+      .map(m => mortgageEdits[m.id] ? { ...m, ...mortgageEdits[m.id] } : m),
+    ...customMortgages.filter(m => !deletedIds.has(m.id)),
+  ], [customMortgages, mortgageEdits, deletedIds]);
+
+  const allCompanies = useMemo(() => Array.from(new Set(allMortgages.map(m => m.company))), [allMortgages]);
+
+  // ── ui state ──
+  const [activeCompany, setActiveCompany] = useState<string | null>(null);
+  const [excludedIds, setExcludedIds]     = useState<Set<string>>(new Set());
+  const [formOpen, setFormOpen]           = useState(false);
+  const [editTarget, setEditTarget]       = useState<Mortgage | null>(null); // null = new
+
+  const activeMortgages = allMortgages.filter(m => !excludedIds.has(m.id));
+  const totalToday      = activeMortgages.reduce((s, m) => s + eff(m, m.remainingToday), 0);
+  const visible         = activeCompany ? [activeCompany] : allCompanies;
+
+  function toggleExclude(id: string) {
+    setExcludedIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  }
+
+  function openNew(company = "") {
+    const blank = emptyForm();
+    blank.company = company;
+    setEditTarget(blank);
+    setFormOpen(true);
+  }
+
+  function openEdit(m: Mortgage) {
+    setEditTarget(m);
+    setFormOpen(true);
+  }
+
+  function handleSave(m: Mortgage) {
+    const isDefault = defaultMortgages.some(d => d.id === m.id);
+    if (isDefault) {
+      const next = { ...mortgageEdits, [m.id]: m };
+      setMortgageEdits(next);
+      saveJSON(KEY_EDITS, next);
+    } else {
+      const exists = customMortgages.some(c => c.id === m.id);
+      const next = exists ? customMortgages.map(c => c.id === m.id ? m : c) : [...customMortgages, m];
+      setCustomMortgages(next);
+      saveJSON(KEY_CUSTOM, next);
+    }
+    setFormOpen(false);
+  }
+
+  function handleDelete(id: string) {
+    const next = new Set(deletedIds); next.add(id);
+    setDeletedIds(next);
+    saveJSON(KEY_DELETED, [...next]);
+    setFormOpen(false);
+    setExcludedIds(prev => { const n = new Set(prev); n.delete(id); return n; });
+  }
 
   return (
     <div className="min-h-screen bg-stone-100">
-
-      {/* ══ Header ══ */}
+      {/* Header */}
       <header className="bg-black text-white sticky top-0 z-20 shadow-md">
         <div className="max-w-screen-2xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
-          {/* Left: back button + title */}
           <div className="flex items-center gap-3 min-w-0">
             <Link href="/" className="flex items-center gap-1.5 text-gray-400 hover:text-white transition-colors shrink-0 border border-white/10 rounded-lg px-2.5 py-1.5 hover:bg-white/10">
               <span className="text-sm">←</span>
@@ -480,15 +711,16 @@ export default function Dashboard() {
               </div>
             </div>
           </div>
-
-          {/* Right: total + reset */}
           <div className="flex items-center gap-2 shrink-0">
             {excludedIds.size > 0 && (
               <button onClick={() => setExcludedIds(new Set())} className="text-xs rounded-full bg-amber-400/20 text-amber-400 px-3 py-1.5 font-semibold border border-amber-400/30 hover:bg-amber-400/30 transition-colors">
-                ↺ <span className="hidden sm:inline">Réinitialiser</span>
+                ↺ <span className="hidden sm:inline">Reset</span>
               </button>
             )}
-            <div className="text-right">
+            <button onClick={() => openNew()} className="flex items-center gap-1.5 bg-amber-400 hover:bg-amber-300 text-black rounded-xl px-3 py-2 text-xs font-bold transition-colors">
+              + <span className="hidden sm:inline">Nouvelle hypothèque</span>
+            </button>
+            <div className="text-right hidden sm:block">
               <div className="text-[10px] text-gray-500 uppercase tracking-wide">Encours</div>
               <div className="text-base font-bold text-amber-400 leading-tight">{formatCHF(totalToday)}</div>
             </div>
@@ -496,54 +728,55 @@ export default function Dashboard() {
         </div>
       </header>
 
-      {/* ══ Content ══ */}
       <main className="max-w-screen-2xl mx-auto px-4 md:px-6 py-5 pb-8">
-        <SummarySection activeMortgages={activeMortgages} />
+        <SummarySection activeMortgages={activeMortgages} allMortgages={allMortgages} />
 
-        {/* Hint */}
         <div className="mb-4 rounded-xl bg-amber-50 border border-amber-200 px-3 py-2.5 text-[11px] text-amber-700 flex items-start gap-2">
           <span>💡</span>
-          <span className="md:hidden">Ouvrez une fiche et appuyez sur « Exclure des totaux » pour retirer un bien du calcul.</span>
-          <span className="hidden md:inline">Cliquez sur une ligne du tableau pour l'exclure des totaux. Cliquez à nouveau pour la réinclure.</span>
+          <span className="md:hidden">Ouvrez une fiche, puis « Modifier » pour éditer ou « Exclure » pour retirer du calcul.</span>
+          <span className="hidden md:inline">Cliquez ✏ pour modifier une hypothèque · Cliquez sur la ligne pour l'exclure des totaux · + Ajouter pour créer dans une société.</span>
         </div>
 
-        {/* Company filter */}
         <div className="flex gap-2 mb-5 overflow-x-auto pb-1">
           <FilterBtn label="Toutes les sociétés" active={activeCompany === null} onClick={() => setActiveCompany(null)} />
-          {companies.map(c => (
+          {allCompanies.map(c => (
             <FilterBtn key={c} label={c} active={activeCompany === c} onClick={() => setActiveCompany(activeCompany === c ? null : c)} />
           ))}
         </div>
 
-        {/* Active contracts title */}
         <div className="mb-3 flex items-baseline gap-2">
           <h2 className="text-base font-bold text-gray-900">Contrats actifs</h2>
           <span className="text-xs text-gray-400">Gestion des engagements et échéances</span>
         </div>
 
         {visible.map(c => (
-          <CompanySection key={c} company={c} excludedIds={excludedIds} onToggle={toggleExclude} />
+          <CompanySection key={c} company={c} allMortgages={allMortgages} excludedIds={excludedIds} onToggle={toggleExclude} onEdit={openEdit} onNew={openNew} />
         ))}
 
-        <div className="rounded-2xl bg-white border border-gray-200 p-4 mt-2 text-xs text-gray-500 leading-relaxed shadow-sm">
+        <div className="rounded-2xl bg-white border border-gray-200 p-4 mt-2 text-xs text-gray-500 shadow-sm">
           <strong className="text-gray-700">Note — Taux Saron Flex :</strong> Les intérêts pour les contrats à taux variable utilisent uniquement la marge indiquée. Le taux Saron réel peut varier — les montants sont une estimation minimale.
         </div>
-        <div className="mt-4 pb-2 text-center text-[11px] text-gray-400">
-          MBA Groupe SA · Données au {TODAY.toLocaleDateString("fr-CH")}
-        </div>
+        <div className="mt-4 pb-2 text-center text-[11px] text-gray-400">MBA Groupe SA · Données au {TODAY.toLocaleDateString("fr-CH")}</div>
       </main>
+
+      {/* Form modal */}
+      {formOpen && editTarget && (
+        <MortgageForm
+          mortgage={editTarget}
+          isNew={!defaultMortgages.some(d => d.id === editTarget.id) && !customMortgages.some(c => c.id === editTarget.id)}
+          allMortgages={allMortgages}
+          onSave={handleSave}
+          onDelete={handleDelete}
+          onClose={() => setFormOpen(false)}
+        />
+      )}
     </div>
   );
 }
 
 function FilterBtn({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
   return (
-    <button
-      onClick={onClick}
-      className={`rounded-full px-3 py-1.5 text-xs font-medium whitespace-nowrap transition-colors border shrink-0 ${
-        active ? "bg-black text-amber-400 border-black font-bold" : "bg-white border-gray-200 text-gray-600 hover:border-gray-400 shadow-sm"
-      }`}
-    >
+    <button onClick={onClick} className={`rounded-full px-3 py-1.5 text-xs font-medium whitespace-nowrap transition-colors border shrink-0 ${active ? "bg-black text-amber-400 border-black font-bold" : "bg-white border-gray-200 text-gray-600 hover:border-gray-400 shadow-sm"}`}>
       {label}
     </button>
   );
