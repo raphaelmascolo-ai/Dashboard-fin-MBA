@@ -34,6 +34,85 @@ function KpiBox({ label, value, sub, color }: { label: string; value: string; su
   );
 }
 
+const kpiExplanations: { label: string; formula: string; description: string }[] = [
+  {
+    label: "Revenus locatifs",
+    formula: "Loyer mensuel x 12 x Taux d'occupation x Taux de recouvrement",
+    description: "Total des loyers annuels encaissés, ajusté selon le taux d'occupation (% du temps loué) et le taux de recouvrement (% des loyers effectivement payés).",
+  },
+  {
+    label: "Charges annuelles",
+    formula: "Somme des charges du bien",
+    description: "Total des charges d'exploitation annuelles : entretien, assurances, frais de gérance, impôts fonciers, provisions pour travaux, etc.",
+  },
+  {
+    label: "NOI (Net Operating Income)",
+    formula: "Revenus locatifs effectifs - Charges annuelles",
+    description: "Revenu net d'exploitation. C'est ce qui reste après avoir payé toutes les charges d'exploitation, mais avant le service de la dette (intérêts + amortissements). Un NOI positif signifie que le bien est rentable opérationnellement.",
+  },
+  {
+    label: "Rendement brut",
+    formula: "(Loyers annuels bruts / Valeur du bien) x 100",
+    description: "Ratio simple entre les loyers annuels bruts (sans déduction) et la valeur du bien. Permet une comparaison rapide entre biens, mais ne tient pas compte des charges ni de la vacance.",
+  },
+  {
+    label: "Rendement net",
+    formula: "(NOI / Valeur du bien) x 100",
+    description: "Ratio entre le NOI et la valeur du bien. Plus réaliste que le rendement brut car il intègre les charges, le taux d'occupation et le recouvrement. C'est l'indicateur de rentabilité le plus utilisé en immobilier.",
+  },
+  {
+    label: "LTV (Loan to Value)",
+    formula: "(Encours hypothécaire / Valeur du bien) x 100",
+    description: "Mesure le niveau d'endettement par rapport à la valeur du bien. En Suisse, un LTV > 66% implique un amortissement obligatoire du 2e rang. Au-delà de 80%, le financement est considéré à risque.",
+  },
+  {
+    label: "DSCR (Debt Service Coverage Ratio)",
+    formula: "NOI / Service de dette annuel (intérêts + amortissements)",
+    description: "Capacité du bien à couvrir ses obligations de dette. Un DSCR de 1.0x signifie que le NOI couvre juste le service de dette. En dessous de 1.0x, le bien ne génère pas assez pour couvrir la dette. Les banques exigent généralement > 1.2x.",
+  },
+  {
+    label: "Cash on Cash Return",
+    formula: "((NOI - Service de dette) / Fonds propres investis) x 100",
+    description: "Rendement sur les fonds propres (equity) après paiement de la dette. C'est le rendement réel pour l'investisseur. Il peut être négatif si le bien coûte plus qu'il ne rapporte après service de la dette.",
+  },
+  {
+    label: "Taux d'occupation",
+    formula: "(Mois occupés / 12 mois) x 100",
+    description: "Part du temps sur l'année où le bien est effectivement loué. 100% = aucune vacance. Ce taux impacte directement les revenus locatifs effectifs et donc tous les indicateurs de rentabilité.",
+  },
+  {
+    label: "Taux de recouvrement",
+    formula: "(Loyers encaissés / Loyers facturés) x 100",
+    description: "Part des loyers qui sont effectivement payés par les locataires. Un taux de 95% signifie que 5% des loyers sont impayés (retards, contentieux, abandons de créance).",
+  },
+];
+
+function KpiGlossary() {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="mt-1 mb-2 px-4">
+      <button
+        onClick={() => setOpen(v => !v)}
+        className="flex items-center gap-1.5 text-[11px] text-[#86868b] hover:text-[#1d1d1f] transition-colors"
+      >
+        <span>{open ? "▾" : "▸"}</span>
+        <span className="underline underline-offset-2 decoration-dotted">Comprendre les indicateurs</span>
+      </button>
+      {open && (
+        <div className="mt-3 space-y-3">
+          {kpiExplanations.map(k => (
+            <div key={k.label} className="bg-stone-50/80 rounded-lg px-4 py-3">
+              <div className="text-xs font-semibold text-[#1d1d1f]">{k.label}</div>
+              <div className="text-[11px] text-[#bf5f1a] font-mono mt-0.5">{k.formula}</div>
+              <div className="text-[11px] text-[#86868b] mt-1 leading-relaxed">{k.description}</div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function PropertyCard({ property }: { property: PropertyData }) {
   const [occupancy, setOccupancy] = useState(100);
   const [recovery, setRecovery] = useState(100);
@@ -81,6 +160,8 @@ function PropertyCard({ property }: { property: PropertyData }) {
         <KpiBox label="DSCR" value={`${dscr.toFixed(2)}x`} sub={dscr < 1 ? "Insuffisant" : dscr < 1.2 ? "Limite" : "Sain"} color={dscrColor} />
         <KpiBox label="Cash on Cash" value={`${cashOnCash.toFixed(2)}%`} sub={`Equity: ${formatCHF(equity)}`} />
       </div>
+
+      <KpiGlossary />
 
       {/* Expandable detail */}
       {open && (
