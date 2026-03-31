@@ -3,7 +3,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { createClient } from "../../lib/supabase/server";
 import { formatCHF, calcAnnualInterest, ratio, type Mortgage } from "../../data";
-import { properties, matchMortgageLabel } from "../properties";
+import { properties, matchMortgageLabel, availableYears } from "../properties";
 import PropertyCards from "./PropertyCards";
 
 const slugMap: Record<string, string> = {
@@ -59,7 +59,7 @@ export default async function EntreprisePage({ params }: { params: Promise<{ slu
 
     return {
       label: prop.label,
-      annualCharges: prop.annualCharges,
+      chargesByYear: prop.chargesByYear,
       totalDebt,
       annualInterest,
       annualAmort,
@@ -78,9 +78,10 @@ export default async function EntreprisePage({ params }: { params: Promise<{ slu
     };
   });
 
-  // Company totals
+  // Company totals (default year: latest)
+  const defaultYear = availableYears[0];
   const totalRent = propertyData.reduce((s, p) => s + p.annualRent, 0);
-  const totalCharges = propertyData.reduce((s, p) => s + p.annualCharges, 0);
+  const totalCharges = propertyData.reduce((s, p) => s + (p.chargesByYear[defaultYear] ?? 0), 0);
   const totalDebt = propertyData.reduce((s, p) => s + p.totalDebt, 0);
   const totalValue = propertyData.reduce((s, p) => s + p.propertyValue, 0);
   const totalNOI = totalRent - totalCharges;
@@ -137,7 +138,7 @@ export default async function EntreprisePage({ params }: { params: Promise<{ slu
             <div className="text-xs text-[#aeaeb2] mt-1">Les données seront ajoutées prochainement</div>
           </div>
         ) : (
-          <PropertyCards properties={propertyData} />
+          <PropertyCards properties={propertyData} availableYears={availableYears} />
         )}
       </main>
 

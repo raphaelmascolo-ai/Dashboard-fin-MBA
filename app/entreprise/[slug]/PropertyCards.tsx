@@ -13,7 +13,7 @@ interface MortgageInfo {
 
 interface PropertyData {
   label: string;
-  annualCharges: number;
+  chargesByYear: Record<number, number>;
   totalDebt: number;
   annualInterest: number;
   annualAmort: number;
@@ -43,7 +43,7 @@ const kpiExplanations: { label: string; formula: string; description: string }[]
   {
     label: "Charges annuelles",
     formula: "Somme des charges du bien",
-    description: "Total des charges d'exploitation annuelles : entretien, assurances, frais de gérance, impôts fonciers, provisions pour travaux, etc.",
+    description: "Total des charges d'exploitation annuelles : entretien, assurances, frais de gérance, impôts fonciers, provisions pour travaux, etc. Sélectionnez l'année pour voir les charges correspondantes.",
   },
   {
     label: "NOI (Net Operating Income)",
@@ -72,8 +72,8 @@ const kpiExplanations: { label: string; formula: string; description: string }[]
   },
   {
     label: "Cash on Cash Return",
-    formula: "((NOI - Service de dette) / Fonds propres investis) x 100",
-    description: "Rendement sur les fonds propres (equity) après paiement de la dette. C'est le rendement réel pour l'investisseur. Il peut être négatif si le bien coûte plus qu'il ne rapporte après service de la dette.",
+    formula: "((NOI - Service de dette) / Fonds propres) x 100",
+    description: "Rendement sur les fonds propres après paiement de la dette. C'est le rendement réel pour l'investisseur. Les fonds propres sont modifiables pour simuler différents scénarios d'apport.",
   },
   {
     label: "Taux d'occupation",
@@ -113,19 +113,24 @@ function KpiGlossary() {
   );
 }
 
-function PropertyCard({ property }: { property: PropertyData }) {
+function PropertyCard({ property, availableYears }: { property: PropertyData; availableYears: number[] }) {
   const [occupancy, setOccupancy] = useState(100);
   const [recovery, setRecovery] = useState(100);
+  const [selectedYear, setSelectedYear] = useState(availableYears[0]);
+  const defaultEquity = property.propertyValue - property.totalDebt;
+  const [equityOverride, setEquityOverride] = useState<number>(defaultEquity);
   const [open, setOpen] = useState(false);
 
   const p = property;
+  const annualCharges = p.chargesByYear[selectedYear] ?? 0;
+  const hasChargesForYear = selectedYear in p.chargesByYear;
   const effectiveRent = p.annualRent * (occupancy / 100) * (recovery / 100);
-  const noi = effectiveRent - p.annualCharges;
+  const noi = effectiveRent - annualCharges;
   const rendementBrut = p.propertyValue > 0 ? (p.annualRent / p.propertyValue) * 100 : 0;
   const rendementNet = p.propertyValue > 0 ? (noi / p.propertyValue) * 100 : 0;
   const ltvVal = p.propertyValue > 0 ? (p.totalDebt / p.propertyValue) * 100 : 0;
   const dscr = p.debtService > 0 ? noi / p.debtService : 0;
-  const equity = p.propertyValue - p.totalDebt;
+  const equity = equityOverride;
   const cashOnCash = equity > 0 ? ((noi - p.debtService) / equity) * 100 : 0;
   const tauxRecouvrement = p.annualRent > 0 ? (effectiveRent / p.annualRent) * 100 : 0;
 
@@ -149,10 +154,33 @@ function PropertyCard({ property }: { property: PropertyData }) {
         </div>
       </button>
 
-      {/* KPIs grid — always visible */}
+      {/* Year selector */}
+      <div className="px-4 pt-3 pb-1 flex items-center gap-2">
+        <span className="text-[10px] text-[#86868b] uppercase tracking-wide">Charges</span>
+        <div className="flex gap-1">
+          {availableYears.map(y => (
+            <button
+              key={y}
+              onClick={() => setSelectedYear(y)}
+              className={`text-[11px] font-semibold px-2.5 py-1 rounded-lg transition-colors ${
+                selectedYear === y
+                  ? "bg-[#1d1d1f] text-white"
+                  : "bg-stone-100 text-[#86868b] hover:bg-stone-200"
+              }`}
+            >
+              {y}
+            </button>
+          ))}
+        </div>
+        {!hasChargesForYear && (
+          <span className="text-[10px] text-amber-600 font-medium ml-1">Pas de données pour {selectedYear}</span>
+        )}
+      </div>
+
+      {/* KPIs grid */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 px-4 py-3">
         <KpiBox label="Revenus locatifs" value={formatCHF(effectiveRent)} sub={occupancy < 100 || recovery < 100 ? `Brut: ${formatCHF(p.annualRent)}` : undefined} color="text-emerald-600" />
-        <KpiBox label="Charges annuelles" value={formatCHF(p.annualCharges)} color="text-red-500" />
+        <KpiBox label={`Charges ${selectedYear}`} value={hasChargesForYear ? formatCHF(annualCharges) : "—"} color="text-red-500" />
         <KpiBox label="NOI" value={formatCHF(noi)} color={noiColor} />
         <KpiBox label="Rendement brut" value={`${rendementBrut.toFixed(2)}%`} />
         <KpiBox label="Rendement net" value={`${rendementNet.toFixed(2)}%`} color={rendementNet >= 0 ? "text-emerald-600" : "text-red-500"} />
@@ -166,8 +194,8 @@ function PropertyCard({ property }: { property: PropertyData }) {
       {/* Expandable detail */}
       {open && (
         <div className="border-t border-white/30 px-5 py-4 space-y-5">
-          {/* Inputs for occupation & recouvrement */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* Editable parameters */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
               <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">
                 Taux d'occupation (%)
@@ -190,6 +218,22 @@ function PropertyCard({ property }: { property: PropertyData }) {
               />
               <p className="text-[10px] text-[#aeaeb2] mt-1">Part des loyers effectivement encaissés</p>
             </div>
+            <div>
+              <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">
+                Fonds propres (CHF)
+              </label>
+              <input
+                type="number" min={0} step={1000} value={equityOverride}
+                onChange={e => setEquityOverride(Math.max(0, Number(e.target.value)))}
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+              />
+              <p className="text-[10px] text-[#aeaeb2] mt-1">
+                Par défaut : valeur - dette = {formatCHF(defaultEquity)}
+                {equityOverride !== defaultEquity && (
+                  <button onClick={() => setEquityOverride(defaultEquity)} className="ml-2 text-[#0071e3] underline">réinitialiser</button>
+                )}
+              </p>
+            </div>
           </div>
 
           {/* Taux de recouvrement résultat */}
@@ -204,7 +248,13 @@ function PropertyCard({ property }: { property: PropertyData }) {
             <div className="space-y-1.5 text-sm">
               <div className="flex justify-between"><span className="text-gray-500">Valeur du bien</span><span className="font-semibold">{formatCHF(p.propertyValue)}</span></div>
               <div className="flex justify-between"><span className="text-gray-500">Encours hypothécaire</span><span className="font-semibold text-[#bf5f1a]">{formatCHF(p.totalDebt)}</span></div>
-              <div className="flex justify-between"><span className="text-gray-500">Fonds propres (equity)</span><span className="font-semibold">{formatCHF(equity)}</span></div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Fonds propres</span>
+                <span className="font-semibold">
+                  {formatCHF(equity)}
+                  {equityOverride !== defaultEquity && <span className="text-[10px] text-amber-600 ml-1">(modifié)</span>}
+                </span>
+              </div>
               <div className="flex justify-between"><span className="text-gray-500">Intérêts annuels</span><span className="font-semibold">{formatCHF(p.annualInterest)}</span></div>
               <div className="flex justify-between"><span className="text-gray-500">Amortissement annuel</span><span className="font-semibold">{formatCHF(p.annualAmort)}</span></div>
               <div className="flex justify-between"><span className="text-gray-500">Service de dette total</span><span className="font-semibold">{formatCHF(p.debtService)}</span></div>
@@ -235,12 +285,12 @@ function PropertyCard({ property }: { property: PropertyData }) {
   );
 }
 
-export default function PropertyCards({ properties }: { properties: PropertyData[] }) {
+export default function PropertyCards({ properties, availableYears }: { properties: PropertyData[]; availableYears: number[] }) {
   return (
     <div className="space-y-5">
       <h2 className="text-lg font-semibold text-[#1d1d1f]">Biens immobiliers ({properties.length})</h2>
       {properties.map(p => (
-        <PropertyCard key={p.label} property={p} />
+        <PropertyCard key={p.label} property={p} availableYears={availableYears} />
       ))}
     </div>
   );
