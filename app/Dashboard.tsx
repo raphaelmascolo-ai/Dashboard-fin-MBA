@@ -1,9 +1,8 @@
 "use client";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
-  mortgages as defaultMortgages,
   formatCHF,
   formatDate,
   calcRemainingInterest,
@@ -19,21 +18,7 @@ import {
   type Mortgage,
   type RateType,
 } from "./data";
-
-// ── localStorage keys ─────────────────────────────────────────────────────────
-const KEY_CUSTOM  = "mba_custom_mortgages";
-const KEY_EDITS   = "mba_mortgage_edits";
-const KEY_DELETED = "mba_deleted_ids";
-
-function loadJSON<T>(key: string, fallback: T): T {
-  if (typeof window === "undefined") return fallback;
-  try { return JSON.parse(localStorage.getItem(key) ?? "null") ?? fallback; }
-  catch { return fallback; }
-}
-
-function saveJSON(key: string, value: unknown) {
-  localStorage.setItem(key, JSON.stringify(value));
-}
+import { createClient } from "./lib/supabase/client";
 
 function generateId(): string {
   const r = () => String(Math.floor(Math.random() * 900) + 100);
@@ -56,7 +41,7 @@ function eff(m: Mortgage, value: number) { return value * ratio(m); }
 // ── Status badge ──────────────────────────────────────────────────────────────
 function StatusBadge({ m }: { m: Mortgage }) {
   if (isExpired(m))    return <span className="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-[11px] font-bold text-red-700 uppercase tracking-wide">Expiré</span>;
-  if (isExpiringSoon(m)) return <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-700 uppercase tracking-wide">Bientôt</span>;
+  if (isExpiringSoon(m)) return <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-[#bf5f1a] uppercase tracking-wide">Bientôt</span>;
   return <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-bold text-emerald-700 uppercase tracking-wide">Actif</span>;
 }
 
@@ -76,8 +61,8 @@ function LtvBar({ value }: { value: number }) {
 }
 
 // ── Mobile row ────────────────────────────────────────────────────────────────
-function MobileRow({ m, allMortgages, excluded, onToggle, onEdit }: {
-  m: Mortgage; allMortgages: Mortgage[]; excluded: boolean; onToggle: () => void; onEdit: () => void;
+function MobileRow({ m, allMortgages, excluded, onToggle, onEdit, isAdmin }: {
+  m: Mortgage; allMortgages: Mortgage[]; excluded: boolean; onToggle: () => void; onEdit: () => void; isAdmin: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const annualInterest = calcAnnualInterest(m);
@@ -93,14 +78,14 @@ function MobileRow({ m, allMortgages, excluded, onToggle, onEdit }: {
     : "border-l-emerald-500";
 
   return (
-    <div className={`border-b border-gray-100 border-l-4 ${leftBorder} ${excluded ? "opacity-40" : ""}`}>
+    <div className={`border-b-2 border-[#1d1d1f]/8 border-l-4 ${leftBorder} ${excluded ? "opacity-40" : ""}`}>
       <button className="w-full text-left px-4 py-3.5" onClick={() => setOpen(v => !v)}>
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
             <div className={`font-semibold text-sm leading-snug ${excluded ? "line-through text-gray-400" : "text-gray-900"}`}>{m.label}</div>
             <div className="flex items-center gap-2 mt-1 flex-wrap">
               <span className="text-[11px] text-gray-400 font-mono">{m.id}</span>
-              {m.shared && <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-700">50% MBA</span>}
+              {m.shared && <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-[#bf5f1a]">50% MBA</span>}
             </div>
           </div>
           <div className="shrink-0 flex flex-col items-end gap-1.5">
@@ -137,10 +122,12 @@ function MobileRow({ m, allMortgages, excluded, onToggle, onEdit }: {
             {m.propertyValue && <Field label="Valeur du bien" value={formatCHF(eff(m, m.propertyValue))} />}
           </div>
           <div className="flex gap-2">
-            <button onClick={e => { e.stopPropagation(); onEdit(); }} className="flex-1 rounded-xl py-2.5 text-xs font-bold border bg-black text-amber-400 border-black">
-              ✏ Modifier
-            </button>
-            <button onClick={e => { e.stopPropagation(); onToggle(); }} className={`flex-1 rounded-xl py-2.5 text-xs font-bold border transition-colors ${excluded ? "bg-amber-50 text-amber-700 border-amber-200" : "bg-red-50 text-red-600 border-red-200"}`}>
+            {isAdmin && (
+              <button onClick={e => { e.stopPropagation(); onEdit(); }} className="flex-1 rounded-xl py-2.5 text-xs font-medium border bg-[#1d1d1f] text-white border-[#1d1d1f] hover:bg-[#333]">
+                ✏ Modifier
+              </button>
+            )}
+            <button onClick={e => { e.stopPropagation(); onToggle(); }} className={`flex-1 rounded-xl py-2.5 text-xs font-bold border transition-colors ${excluded ? "bg-amber-50 text-[#bf5f1a] border-amber-200" : "bg-red-50 text-red-600 border-red-200"}`}>
               {excluded ? "✓ Réinclure" : "✕ Exclure"}
             </button>
           </div>
@@ -160,29 +147,31 @@ function Field({ label, value, gold, green }: { label: string; value: string; go
 }
 
 // ── Desktop table row ─────────────────────────────────────────────────────────
-function TableRow({ m, idx, allMortgages, excluded, onToggle, onEdit }: {
-  m: Mortgage; idx: number; allMortgages: Mortgage[]; excluded: boolean; onToggle: () => void; onEdit: () => void;
+function TableRow({ m, idx, allMortgages, excluded, onToggle, onEdit, isAdmin }: {
+  m: Mortgage; idx: number; allMortgages: Mortgage[]; excluded: boolean; onToggle: () => void; onEdit: () => void; isAdmin: boolean;
 }) {
   const remInterest = calcRemainingInterest(m);
   const ltvVal      = ltv(m, allMortgages);
   const yrs         = yearsRemaining(m);
 
   return (
-    <tr className={`border-b border-gray-100 select-none text-sm transition-all ${
+    <tr className={`border-b-2 border-[#1d1d1f]/8 select-none text-sm transition-all ${
       excluded ? "opacity-30" : idx % 2 === 0 ? "bg-white" : "bg-stone-50"
     }`}>
       {/* Edit button */}
       <td className="px-2 py-3 w-8">
-        <button onClick={onEdit} title="Modifier" className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-400 hover:bg-amber-100 hover:text-amber-700 transition-colors">
-          ✏
-        </button>
+        {isAdmin && (
+          <button onClick={onEdit} title="Modifier" className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-400 hover:bg-amber-100 hover:text-[#bf5f1a] transition-colors">
+            ✏
+          </button>
+        )}
       </td>
       {/* Label */}
       <td className="px-3 py-3 cursor-pointer hover:bg-amber-50/40" onClick={onToggle} title={excluded ? "Réinclure" : "Exclure"}>
         <div className={`font-semibold leading-snug ${excluded ? "line-through text-gray-400" : "text-gray-900"}`}>{m.label}</div>
         <div className="flex items-center gap-1.5 mt-0.5">
           <span className="text-[11px] text-gray-400 font-mono">{m.id}</span>
-          {m.shared && <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-700">50% MBA</span>}
+          {m.shared && <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-[#bf5f1a]">50% MBA</span>}
         </div>
       </td>
       <td className="px-3 py-3 text-center">
@@ -240,9 +229,10 @@ function TableRow({ m, idx, allMortgages, excluded, onToggle, onEdit }: {
 }
 
 // ── Company section ───────────────────────────────────────────────────────────
-function CompanySection({ company, allMortgages, excludedIds, onToggle, onEdit, onNew }: {
+function CompanySection({ company, allMortgages, excludedIds, onToggle, onEdit, onNew, isAdmin }: {
   company: string; allMortgages: Mortgage[]; excludedIds: Set<string>;
   onToggle: (id: string) => void; onEdit: (m: Mortgage) => void; onNew: (company: string) => void;
+  isAdmin: boolean;
 }) {
   const allItems    = allMortgages.filter(m => m.company === company);
   const activeItems = allItems.filter(m => !excludedIds.has(m.id));
@@ -262,22 +252,24 @@ function CompanySection({ company, allMortgages, excludedIds, onToggle, onEdit, 
   const excludedCount = allItems.length - activeItems.length;
 
   return (
-    <section className="mb-6 rounded-2xl overflow-hidden border border-gray-200 shadow-md bg-white">
+    <section className="mb-6 rounded-2xl overflow-hidden glass-card">
       {/* Header */}
-      <div className="bg-black px-5 py-4">
+      <div className="bg-white/40 border-b border-white/40 px-5 py-4">
         <div className="flex items-center justify-between gap-3 mb-3">
           <div>
-            <h2 className="text-sm font-bold text-white">{company}</h2>
+            <h2 className="text-sm font-semibold text-[#1d1d1f]">{company}</h2>
             <div className="flex flex-wrap items-center gap-1.5 mt-1">
-              <span className="text-[11px] text-gray-400">{activeItems.length}/{allItems.length} hypothèque{allItems.length > 1 ? "s" : ""}</span>
-              {excludedCount > 0 && <span className="rounded-full bg-white/10 px-2 py-0.5 text-[11px] text-gray-300">{excludedCount} exclu{excludedCount > 1 ? "s" : ""}</span>}
-              {expiredCount > 0 && <span className="rounded-full bg-red-900/60 px-2 py-0.5 text-[11px] text-red-300">⚠ {expiredCount} expiré{expiredCount > 1 ? "s" : ""}</span>}
-              {soonCount > 0 && <span className="rounded-full bg-amber-900/60 px-2 py-0.5 text-[11px] text-amber-300">⏳ {soonCount} bientôt</span>}
+              <span className="text-[11px] text-[#86868b]">{activeItems.length}/{allItems.length} hypothèque{allItems.length > 1 ? "s" : ""}</span>
+              {excludedCount > 0 && <span className="rounded-full bg-white/50 px-2 py-0.5 text-[11px] text-[#86868b]">{excludedCount} exclu{excludedCount > 1 ? "s" : ""}</span>}
+              {expiredCount > 0 && <span className="rounded-full bg-[#ff3b30]/10 px-2 py-0.5 text-[11px] text-[#ff3b30]">⚠ {expiredCount} expiré{expiredCount > 1 ? "s" : ""}</span>}
+              {soonCount > 0 && <span className="rounded-full bg-[#ff9f0a]/10 px-2 py-0.5 text-[11px] text-[#bf5f1a]">⏳ {soonCount} bientôt</span>}
             </div>
           </div>
-          <button onClick={() => onNew(company)} className="shrink-0 flex items-center gap-1.5 bg-amber-400 hover:bg-amber-300 text-black rounded-xl px-3 py-1.5 text-xs font-bold transition-colors">
-            + Ajouter
-          </button>
+          {isAdmin && (
+            <button onClick={() => onNew(company)} className="shrink-0 flex items-center gap-1.5 bg-[#1d1d1f] hover:bg-[#333] text-white rounded-xl px-3 py-1.5 text-xs font-medium transition-colors">
+              + Ajouter
+            </button>
+          )}
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
           <HeaderStat label="Solde actuel"    value={formatCHF(totalToday)} gold />
@@ -290,10 +282,10 @@ function CompanySection({ company, allMortgages, excludedIds, onToggle, onEdit, 
       {/* Mobile */}
       <div className="md:hidden divide-y divide-gray-100">
         {allItems.map(m => (
-          <MobileRow key={m.id} m={m} allMortgages={allMortgages} excluded={excludedIds.has(m.id)} onToggle={() => onToggle(m.id)} onEdit={() => onEdit(m)} />
+          <MobileRow key={m.id} m={m} allMortgages={allMortgages} excluded={excludedIds.has(m.id)} onToggle={() => onToggle(m.id)} onEdit={() => onEdit(m)} isAdmin={isAdmin} />
         ))}
-        <div className="bg-gray-900 px-4 py-4">
-          <div className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-3">
+        <div className="bg-white/30 border-t border-white/40 px-4 py-4">
+          <div className="text-[11px] font-semibold text-[#86868b] uppercase tracking-wider mb-3">
             Sous-total — {activeItems.length}{excludedCount > 0 ? `/${allItems.length}` : ""} contrat{allItems.length > 1 ? "s" : ""}
           </div>
           <div className="grid grid-cols-2 gap-2">
@@ -322,23 +314,23 @@ function CompanySection({ company, allMortgages, excludedIds, onToggle, onEdit, 
           </thead>
           <tbody>
             {allItems.map((m, i) => (
-              <TableRow key={m.id} m={m} idx={i} allMortgages={allMortgages} excluded={excludedIds.has(m.id)} onToggle={() => onToggle(m.id)} onEdit={() => onEdit(m)} />
+              <TableRow key={m.id} m={m} idx={i} allMortgages={allMortgages} excluded={excludedIds.has(m.id)} onToggle={() => onToggle(m.id)} onEdit={() => onEdit(m)} isAdmin={isAdmin} />
             ))}
-            <tr className="bg-black text-white text-sm font-bold border-t-2 border-amber-500">
+            <tr className="bg-white/40 text-[#1d1d1f] text-sm font-semibold border-t border-white/40">
               <td />
               <td className="px-3 py-3" colSpan={2}>Sous-total — {activeItems.length}{excludedCount > 0 ? `/${allItems.length}` : ""} contrat{allItems.length > 1 ? "s" : ""}</td>
-              <td className="px-3 py-3 text-right font-mono text-gray-300">{formatCHF(totalInitial)}</td>
+              <td className="px-3 py-3 text-right font-mono text-gray-500">{formatCHF(totalInitial)}</td>
               <td /><td />
-              <td className="px-3 py-3 text-right font-mono text-gray-300">{totalAmort > 0 ? formatCHF(totalAmort) : "—"}</td>
-              <td className="px-3 py-3 text-right font-mono text-amber-400">{formatCHF(totalToday)}</td>
-              <td className="px-3 py-3 text-right font-mono text-gray-400">{formatCHF(totalEnd)}</td>
-              <td className="px-3 py-3 text-right font-mono text-amber-400">{formatCHF(totalIntA)}</td>
-              <td className="px-3 py-3 text-right font-mono text-gray-400">{formatCHF(totalIntRem)}</td>
+              <td className="px-3 py-3 text-right font-mono text-gray-500">{totalAmort > 0 ? formatCHF(totalAmort) : "—"}</td>
+              <td className="px-3 py-3 text-right font-mono text-[#bf5f1a]">{formatCHF(totalToday)}</td>
+              <td className="px-3 py-3 text-right font-mono text-gray-500">{formatCHF(totalEnd)}</td>
+              <td className="px-3 py-3 text-right font-mono text-[#bf5f1a]">{formatCHF(totalIntA)}</td>
+              <td className="px-3 py-3 text-right font-mono text-gray-500">{formatCHF(totalIntRem)}</td>
               <td className="px-3 py-3 text-right font-mono">
-                {propValue > 0 ? <><div className="text-gray-300">{formatCHF(propValue)}</div><div className="text-xs font-normal text-emerald-400">+{formatCHF(propValue - totalToday)}</div></> : "—"}
+                {propValue > 0 ? <><div className="text-gray-600">{formatCHF(propValue)}</div><div className="text-xs font-normal text-emerald-600">+{formatCHF(propValue - totalToday)}</div></> : "—"}
               </td>
               <td className="px-3 py-3 text-right font-mono">
-                {totalRent > 0 ? <><div className="text-emerald-400">{formatCHF(totalRent)}</div><div className="text-xs font-normal text-red-400">–{formatCHF(totalCharges)}</div></> : "—"}
+                {totalRent > 0 ? <><div className="text-emerald-600">{formatCHF(totalRent)}</div><div className="text-xs font-normal text-red-500">–{formatCHF(totalCharges)}</div></> : "—"}
               </td>
             </tr>
           </tbody>
@@ -350,17 +342,17 @@ function CompanySection({ company, allMortgages, excludedIds, onToggle, onEdit, 
 
 function HeaderStat({ label, value, gold, green }: { label: string; value: string; gold?: boolean; green?: boolean }) {
   return (
-    <div className="rounded-xl bg-white/8 border border-white/10 px-3 py-2.5">
-      <div className="text-[10px] text-gray-400 uppercase tracking-wide">{label}</div>
-      <div className={`text-sm font-bold mt-0.5 ${gold ? "text-amber-400" : green ? "text-emerald-400" : "text-white"}`}>{value}</div>
+    <div className="rounded-xl bg-white/50 border border-white/40 px-3 py-2.5">
+      <div className="text-[10px] text-[#86868b] uppercase tracking-wide">{label}</div>
+      <div className={`text-sm font-bold mt-0.5 ${gold ? "text-[#bf5f1a]" : green ? "text-[#34c759]" : "text-[#1d1d1f]"}`}>{value}</div>
     </div>
   );
 }
 function MiniTotal({ label, value, gold, green }: { label: string; value: string; gold?: boolean; green?: boolean }) {
   return (
-    <div className="rounded-lg bg-gray-800 px-3 py-2">
-      <div className="text-[10px] text-gray-400 uppercase tracking-wide">{label}</div>
-      <div className={`text-xs font-bold mt-0.5 ${gold ? "text-amber-400" : green ? "text-emerald-400" : "text-white"}`}>{value}</div>
+    <div className="rounded-xl bg-white/50 border border-white/40 px-3 py-2">
+      <div className="text-[10px] text-[#86868b] uppercase tracking-wide">{label}</div>
+      <div className={`text-xs font-bold mt-0.5 ${gold ? "text-[#bf5f1a]" : green ? "text-[#34c759]" : "text-[#1d1d1f]"}`}>{value}</div>
     </div>
   );
 }
@@ -408,7 +400,7 @@ function KpiCard({ label, value, sub, icon, gold, green, red, amber }: {
   label: string; value: string; sub: string; icon: string; gold?: boolean; green?: boolean; red?: boolean; amber?: boolean;
 }) {
   const border = red ? "border-red-200 bg-red-50" : amber ? "border-amber-200 bg-amber-50" : gold ? "border-amber-200 bg-amber-50" : green ? "border-emerald-200 bg-emerald-50" : "border-gray-200 bg-white";
-  const valColor = red ? "text-red-700" : amber ? "text-amber-700" : gold ? "text-amber-700" : green ? "text-emerald-800" : "text-gray-900";
+  const valColor = red ? "text-red-700" : amber ? "text-[#bf5f1a]" : gold ? "text-[#bf5f1a]" : green ? "text-emerald-800" : "text-gray-900";
   const subColor = red ? "text-red-500" : amber ? "text-amber-600" : gold ? "text-amber-500" : green ? "text-emerald-600" : "text-gray-400";
   return (
     <div className={`rounded-2xl border p-4 shadow-sm ${border}`}>
@@ -435,8 +427,8 @@ function inputCls(err?: string) {
   return `w-full px-3 py-2.5 rounded-xl border text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-400 ${err ? "border-red-300" : "border-gray-200"}`;
 }
 
-function MortgageForm({ mortgage, isNew, allMortgages, onSave, onDelete, onClose }: {
-  mortgage: Mortgage; isNew: boolean; allMortgages: Mortgage[];
+function MortgageForm({ mortgage, isNew, allMortgages, saving, onSave, onDelete, onClose }: {
+  mortgage: Mortgage; isNew: boolean; allMortgages: Mortgage[]; saving: boolean;
   onSave: (m: Mortgage) => void; onDelete: (id: string) => void; onClose: () => void;
 }) {
   const [form, setForm] = useState<Mortgage>(() => ({ ...mortgage }));
@@ -478,15 +470,15 @@ function MortgageForm({ mortgage, isNew, allMortgages, onSave, onDelete, onClose
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-4">
-      <div className="bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl w-full sm:max-w-2xl max-h-[95vh] sm:max-h-[90vh] flex flex-col overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-xl p-0 sm:p-4">
+      <div className="bg-white/90 backdrop-blur-2xl rounded-t-3xl sm:rounded-2xl shadow-2xl w-full sm:max-w-2xl max-h-[95vh] sm:max-h-[90vh] flex flex-col overflow-hidden border border-white/50">
         {/* Header */}
-        <div className="bg-black text-white px-5 py-4 flex items-center justify-between shrink-0">
+        <div className="bg-white/50 border-b border-white/40 px-5 py-4 flex items-center justify-between shrink-0">
           <div>
-            <div className="font-bold text-base">{isNew ? "Nouvelle hypothèque" : `Modifier — ${mortgage.label}`}</div>
-            {!isNew && <div className="text-[11px] text-gray-400 mt-0.5 font-mono">{mortgage.id}</div>}
+            <div className="font-semibold text-base text-[#1d1d1f]">{isNew ? "Nouvelle hypothèque" : `Modifier — ${mortgage.label}`}</div>
+            {!isNew && <div className="text-[11px] text-[#86868b] mt-0.5 font-mono">{mortgage.id}</div>}
           </div>
-          <button onClick={onClose} className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 transition-colors text-lg">✕</button>
+          <button onClick={onClose} className="w-8 h-8 rounded-xl flex items-center justify-center text-[#86868b] hover:text-[#1d1d1f] hover:bg-white/60 transition-all text-lg">✕</button>
         </div>
 
         {/* Body */}
@@ -596,8 +588,8 @@ function MortgageForm({ mortgage, isNew, allMortgages, onSave, onDelete, onClose
             <button onClick={onClose} className="px-4 py-2.5 rounded-xl text-sm font-semibold text-gray-600 border border-gray-200 hover:bg-gray-50 transition-colors">
               Annuler
             </button>
-            <button onClick={handleSave} className="px-5 py-2.5 rounded-xl text-sm font-bold text-black bg-amber-400 hover:bg-amber-300 transition-colors">
-              {isNew ? "✓ Créer" : "✓ Enregistrer"}
+            <button onClick={handleSave} disabled={saving} className="px-5 py-2.5 rounded-xl text-sm font-medium text-white bg-[#1d1d1f] hover:bg-[#333] transition-colors disabled:opacity-50">
+              {saving ? "…" : isNew ? "✓ Créer" : "✓ Enregistrer"}
             </button>
           </div>
         </div>
@@ -626,18 +618,13 @@ function FormField({ label, error, children }: { label: string; error?: string; 
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 export default function Dashboard() {
-  // ── persistent state ──
-  const [customMortgages, setCustomMortgages] = useState<Mortgage[]>(() => loadJSON(KEY_CUSTOM, []));
-  const [mortgageEdits, setMortgageEdits]     = useState<Record<string, Mortgage>>(() => loadJSON(KEY_EDITS, {}));
-  const [deletedIds, setDeletedIds]           = useState<Set<string>>(() => new Set<string>(loadJSON<string[]>(KEY_DELETED, [])));
-
-  // ── merge default + custom ──
-  const allMortgages = useMemo<Mortgage[]>(() => [
-    ...defaultMortgages
-      .filter(m => !deletedIds.has(m.id))
-      .map(m => mortgageEdits[m.id] ? { ...m, ...mortgageEdits[m.id] } : m),
-    ...customMortgages.filter(m => !deletedIds.has(m.id)),
-  ], [customMortgages, mortgageEdits, deletedIds]);
+  // ── data state ──
+  const [allMortgages, setAllMortgages] = useState<Mortgage[]>([]);
+  const [loadingData, setLoadingData]   = useState(true);
+  const [dataError, setDataError]       = useState("");
+  const [isAdmin, setIsAdmin]           = useState(false);
+  const [isNewForm, setIsNewForm]       = useState(false);
+  const [saving, setSaving]             = useState(false);
 
   const allCompanies = useMemo(() => Array.from(new Set(allMortgages.map(m => m.company))), [allMortgages]);
 
@@ -645,11 +632,31 @@ export default function Dashboard() {
   const [activeCompany, setActiveCompany] = useState<string | null>(null);
   const [excludedIds, setExcludedIds]     = useState<Set<string>>(new Set());
   const [formOpen, setFormOpen]           = useState(false);
-  const [editTarget, setEditTarget]       = useState<Mortgage | null>(null); // null = new
+  const [editTarget, setEditTarget]       = useState<Mortgage | null>(null);
 
   const activeMortgages = allMortgages.filter(m => !excludedIds.has(m.id));
   const totalToday      = activeMortgages.reduce((s, m) => s + eff(m, m.remainingToday), 0);
   const visible         = activeCompany ? [activeCompany] : allCompanies;
+
+  const fetchMortgages = useCallback(async () => {
+    setLoadingData(true);
+    setDataError("");
+    const res = await fetch("/api/mortgages");
+    if (!res.ok) { setDataError("Impossible de charger les données."); setLoadingData(false); return; }
+    setAllMortgages(await res.json());
+    setLoadingData(false);
+  }, []);
+
+  useEffect(() => {
+    fetchMortgages();
+    // Check if current user is admin
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return;
+      supabase.from("user_profiles").select("role").eq("id", user.id).single()
+        .then(({ data }) => setIsAdmin(data?.role === "admin"));
+    });
+  }, [fetchMortgages]);
 
   function toggleExclude(id: string) {
     setExcludedIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
@@ -659,44 +666,54 @@ export default function Dashboard() {
     const blank = emptyForm();
     blank.company = company;
     setEditTarget(blank);
+    setIsNewForm(true);
     setFormOpen(true);
   }
 
   function openEdit(m: Mortgage) {
     setEditTarget(m);
+    setIsNewForm(false);
     setFormOpen(true);
   }
 
-  function handleSave(m: Mortgage) {
-    const isDefault = defaultMortgages.some(d => d.id === m.id);
-    if (isDefault) {
-      const next = { ...mortgageEdits, [m.id]: m };
-      setMortgageEdits(next);
-      saveJSON(KEY_EDITS, next);
-    } else {
-      const exists = customMortgages.some(c => c.id === m.id);
-      const next = exists ? customMortgages.map(c => c.id === m.id ? m : c) : [...customMortgages, m];
-      setCustomMortgages(next);
-      saveJSON(KEY_CUSTOM, next);
-    }
+  async function handleSave(m: Mortgage) {
+    setSaving(true);
+    const method = isNewForm ? "POST" : "PUT";
+    const url = isNewForm ? "/api/mortgages" : `/api/mortgages/${m.id}`;
+    const res = await fetch(url, {
+      method,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(m),
+    });
+    setSaving(false);
+    if (!res.ok) { alert("Erreur lors de l'enregistrement."); return; }
     setFormOpen(false);
+    fetchMortgages();
   }
 
-  function handleDelete(id: string) {
-    const next = new Set(deletedIds); next.add(id);
-    setDeletedIds(next);
-    saveJSON(KEY_DELETED, [...next]);
+  async function handleDelete(id: string) {
+    setSaving(true);
+    const res = await fetch(`/api/mortgages/${id}`, { method: "DELETE" });
+    setSaving(false);
+    if (!res.ok) { alert("Erreur lors de la suppression."); return; }
     setFormOpen(false);
     setExcludedIds(prev => { const n = new Set(prev); n.delete(id); return n; });
+    fetchMortgages();
+  }
+
+  async function handleLogout() {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    window.location.href = "/login";
   }
 
   return (
-    <div className="min-h-screen bg-stone-100">
+    <div className="min-h-screen bg-warm">
       {/* Header */}
-      <header className="bg-black text-white sticky top-0 z-20 shadow-md">
+      <header className="glass sticky top-0 z-20 border-b border-white/30">
         <div className="max-w-screen-2xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
-            <Link href="/" className="flex items-center gap-1.5 text-gray-400 hover:text-white transition-colors shrink-0 border border-white/10 rounded-lg px-2.5 py-1.5 hover:bg-white/10">
+            <Link href="/" className="flex items-center gap-1.5 text-[#86868b] hover:text-[#1d1d1f] transition-colors shrink-0 border border-white/40 rounded-xl px-2.5 py-1.5 hover:bg-white/40">
               <span className="text-sm">←</span>
               <span className="text-xs font-medium hidden sm:inline">Accueil</span>
             </Link>
@@ -704,67 +721,92 @@ export default function Dashboard() {
               <Image src="/logo.png" alt="MBA" fill className="object-contain" />
             </div>
             <div className="min-w-0">
-              <div className="text-sm font-bold text-white leading-tight">Hypothèques</div>
-              <div className="text-[11px] text-gray-400 hidden sm:block">
+              <div className="text-sm font-semibold text-[#1d1d1f] leading-tight">Hypothèques</div>
+              <div className="text-[11px] text-[#86868b] hidden sm:block">
                 {TODAY.toLocaleDateString("fr-CH", { day: "2-digit", month: "long", year: "numeric" })}
-                {excludedIds.size > 0 && <span className="ml-2 text-amber-400 font-semibold">· {excludedIds.size} exclu{excludedIds.size > 1 ? "s" : ""}</span>}
+                {excludedIds.size > 0 && <span className="ml-2 text-[#bf5f1a] font-semibold">· {excludedIds.size} exclu{excludedIds.size > 1 ? "s" : ""}</span>}
               </div>
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
             {excludedIds.size > 0 && (
-              <button onClick={() => setExcludedIds(new Set())} className="text-xs rounded-full bg-amber-400/20 text-amber-400 px-3 py-1.5 font-semibold border border-amber-400/30 hover:bg-amber-400/30 transition-colors">
+              <button onClick={() => setExcludedIds(new Set())} className="text-xs rounded-full bg-white/50 text-[#86868b] px-3 py-1.5 font-medium border border-white/40 hover:bg-white/70 transition-all">
                 ↺ <span className="hidden sm:inline">Reset</span>
               </button>
             )}
-            <button onClick={() => openNew()} className="flex items-center gap-1.5 bg-amber-400 hover:bg-amber-300 text-black rounded-xl px-3 py-2 text-xs font-bold transition-colors">
-              + <span className="hidden sm:inline">Nouvelle hypothèque</span>
-            </button>
             <div className="text-right hidden sm:block">
-              <div className="text-[10px] text-gray-500 uppercase tracking-wide">Encours</div>
-              <div className="text-base font-bold text-amber-400 leading-tight">{formatCHF(totalToday)}</div>
+              <div className="text-[10px] text-[#86868b] uppercase tracking-wide">Encours</div>
+              <div className="text-base font-bold text-[#bf5f1a] leading-tight">{formatCHF(totalToday)}</div>
             </div>
+            {isAdmin && (
+              <button onClick={() => openNew()} className="flex items-center gap-1.5 bg-[#1d1d1f] hover:bg-[#333] text-white rounded-xl px-3 py-2 text-xs font-medium transition-colors">
+                + <span className="hidden sm:inline">Nouvelle hypothèque</span>
+              </button>
+            )}
+            <div className="w-px h-6 bg-white/30 hidden sm:block" />
+            {isAdmin && (
+              <Link href="/admin" className="flex items-center gap-1.5 text-xs font-medium text-[#1d1d1f] bg-white/50 hover:bg-white/70 border border-white/40 rounded-xl px-3 py-2 transition-all">
+                <span>⚙</span>
+                <span className="hidden sm:inline">Admin</span>
+              </Link>
+            )}
+            <button onClick={handleLogout} className="flex items-center gap-1.5 text-xs font-medium text-[#86868b] bg-white/30 hover:bg-white/50 hover:text-[#ff3b30] border border-white/30 rounded-xl px-3 py-2 transition-all">
+              <span>⎋</span>
+              <span className="hidden sm:inline">Déconnexion</span>
+            </button>
           </div>
         </div>
       </header>
 
       <main className="max-w-screen-2xl mx-auto px-4 md:px-6 py-5 pb-8">
-        <SummarySection activeMortgages={activeMortgages} allMortgages={allMortgages} />
+        {dataError && (
+          <div className="mb-4 rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-600">{dataError}</div>
+        )}
+        {loadingData ? (
+          <div className="py-20 text-center text-sm text-gray-400">Chargement des données…</div>
+        ) : (
+          <>
+            <SummarySection activeMortgages={activeMortgages} allMortgages={allMortgages} />
 
-        <div className="mb-4 rounded-xl bg-amber-50 border border-amber-200 px-3 py-2.5 text-[11px] text-amber-700 flex items-start gap-2">
-          <span>💡</span>
-          <span className="md:hidden">Ouvrez une fiche, puis « Modifier » pour éditer ou « Exclure » pour retirer du calcul.</span>
-          <span className="hidden md:inline">Cliquez ✏ pour modifier une hypothèque · Cliquez sur la ligne pour l'exclure des totaux · + Ajouter pour créer dans une société.</span>
-        </div>
+            {isAdmin && (
+              <div className="mb-4 rounded-xl bg-amber-50 border border-amber-200 px-3 py-2.5 text-[11px] text-[#bf5f1a] flex items-start gap-2">
+                <span>💡</span>
+                <span className="md:hidden">Ouvrez une fiche, puis « Modifier » pour éditer ou « Exclure » pour retirer du calcul.</span>
+                <span className="hidden md:inline">Cliquez ✏ pour modifier une hypothèque · Cliquez sur la ligne pour l'exclure des totaux · + Ajouter pour créer dans une société.</span>
+              </div>
+            )}
 
-        <div className="flex gap-2 mb-5 overflow-x-auto pb-1">
-          <FilterBtn label="Toutes les sociétés" active={activeCompany === null} onClick={() => setActiveCompany(null)} />
-          {allCompanies.map(c => (
-            <FilterBtn key={c} label={c} active={activeCompany === c} onClick={() => setActiveCompany(activeCompany === c ? null : c)} />
-          ))}
-        </div>
+            <div className="flex gap-2 mb-5 overflow-x-auto pb-1">
+              <FilterBtn label="Toutes les sociétés" active={activeCompany === null} onClick={() => setActiveCompany(null)} />
+              {allCompanies.map(c => (
+                <FilterBtn key={c} label={c} active={activeCompany === c} onClick={() => setActiveCompany(activeCompany === c ? null : c)} />
+              ))}
+            </div>
 
-        <div className="mb-3 flex items-baseline gap-2">
-          <h2 className="text-base font-bold text-gray-900">Contrats actifs</h2>
-          <span className="text-xs text-gray-400">Gestion des engagements et échéances</span>
-        </div>
+            <div className="mb-3 flex items-baseline gap-2">
+              <h2 className="text-base font-bold text-gray-900">Contrats actifs</h2>
+              <span className="text-xs text-gray-400">Gestion des engagements et échéances</span>
+            </div>
 
-        {visible.map(c => (
-          <CompanySection key={c} company={c} allMortgages={allMortgages} excludedIds={excludedIds} onToggle={toggleExclude} onEdit={openEdit} onNew={openNew} />
-        ))}
+            {visible.map(c => (
+              <CompanySection key={c} company={c} allMortgages={allMortgages} excludedIds={excludedIds} onToggle={toggleExclude} onEdit={isAdmin ? openEdit : () => {}} onNew={isAdmin ? openNew : () => {}} isAdmin={isAdmin} />
+            ))}
 
-        <div className="rounded-2xl bg-white border border-gray-200 p-4 mt-2 text-xs text-gray-500 shadow-sm">
-          <strong className="text-gray-700">Note — Taux Saron Flex :</strong> Les intérêts pour les contrats à taux variable utilisent uniquement la marge indiquée. Le taux Saron réel peut varier — les montants sont une estimation minimale.
-        </div>
-        <div className="mt-4 pb-2 text-center text-[11px] text-gray-400">MBA Groupe SA · Données au {TODAY.toLocaleDateString("fr-CH")}</div>
+            <div className="rounded-2xl bg-white border border-gray-200 p-4 mt-2 text-xs text-gray-500 shadow-sm">
+              <strong className="text-gray-700">Note — Taux Saron Flex :</strong> Les intérêts pour les contrats à taux variable utilisent uniquement la marge indiquée. Le taux Saron réel peut varier — les montants sont une estimation minimale.
+            </div>
+            <div className="mt-4 pb-2 text-center text-[11px] text-gray-400">MBA Groupe SA · Données au {TODAY.toLocaleDateString("fr-CH")}</div>
+          </>
+        )}
       </main>
 
       {/* Form modal */}
       {formOpen && editTarget && (
         <MortgageForm
           mortgage={editTarget}
-          isNew={!defaultMortgages.some(d => d.id === editTarget.id) && !customMortgages.some(c => c.id === editTarget.id)}
+          isNew={isNewForm}
           allMortgages={allMortgages}
+          saving={saving}
           onSave={handleSave}
           onDelete={handleDelete}
           onClose={() => setFormOpen(false)}
@@ -776,7 +818,7 @@ export default function Dashboard() {
 
 function FilterBtn({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
   return (
-    <button onClick={onClick} className={`rounded-full px-3 py-1.5 text-xs font-medium whitespace-nowrap transition-colors border shrink-0 ${active ? "bg-black text-amber-400 border-black font-bold" : "bg-white border-gray-200 text-gray-600 hover:border-gray-400 shadow-sm"}`}>
+    <button onClick={onClick} className={`rounded-full px-3 py-1.5 text-xs font-medium whitespace-nowrap transition-all border shrink-0 ${active ? "bg-[#1d1d1f] text-white border-[#1d1d1f]" : "bg-white/60 border-white/40 text-[#86868b] hover:bg-white/80 hover:text-[#1d1d1f]"}`}>
       {label}
     </button>
   );
