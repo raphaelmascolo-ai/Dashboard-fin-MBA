@@ -109,6 +109,7 @@ export default async function Home() {
             { name: "ASV Construction Générale SA", icon: "🔨", color: "#5856d6" },
             { name: "ASV Fenêtres et Portes SA", icon: "🪟", color: "#ff9500" },
             { name: "MBA Services SA", icon: "⚙️", color: "#af52de" },
+            { name: "Promotion", icon: "📐", color: "#ff2d55" },
           ].map((company) => {
             const companyMortgages = mortgages.filter(m => m.company === company.name);
             const companyVehicles = vhcList.filter(v => v.company === company.name);
