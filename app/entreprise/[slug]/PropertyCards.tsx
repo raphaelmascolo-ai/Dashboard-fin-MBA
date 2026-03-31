@@ -34,84 +34,18 @@ function KpiBox({ label, value, sub, color }: { label: string; value: string; su
   );
 }
 
-const kpiExplanations: { label: string; formula: string; description: string }[] = [
-  {
-    label: "Revenus locatifs",
-    formula: "Loyer mensuel x 12 x Taux d'occupation x Taux de recouvrement",
-    description: "Total des loyers annuels encaissés, ajusté selon le taux d'occupation (% du temps loué) et le taux de recouvrement (% des loyers effectivement payés).",
-  },
-  {
-    label: "Charges annuelles",
-    formula: "Somme des charges du bien",
-    description: "Total des charges d'exploitation annuelles : entretien, assurances, frais de gérance, impôts fonciers, provisions pour travaux, etc. Sélectionnez l'année pour voir les charges correspondantes.",
-  },
-  {
-    label: "NOI (Net Operating Income)",
-    formula: "Revenus locatifs effectifs - Charges annuelles",
-    description: "Revenu net d'exploitation. C'est ce qui reste après avoir payé toutes les charges d'exploitation, mais avant le service de la dette (intérêts + amortissements). Un NOI positif signifie que le bien est rentable opérationnellement.",
-  },
-  {
-    label: "Rendement brut",
-    formula: "(Loyers annuels bruts / Valeur du bien) x 100",
-    description: "Ratio simple entre les loyers annuels bruts (sans déduction) et la valeur du bien. Permet une comparaison rapide entre biens, mais ne tient pas compte des charges ni de la vacance.",
-  },
-  {
-    label: "Rendement net",
-    formula: "(NOI / Valeur du bien) x 100",
-    description: "Ratio entre le NOI et la valeur du bien. Plus réaliste que le rendement brut car il intègre les charges, le taux d'occupation et le recouvrement. C'est l'indicateur de rentabilité le plus utilisé en immobilier.",
-  },
-  {
-    label: "LTV (Loan to Value)",
-    formula: "(Encours hypothécaire / Valeur du bien) x 100",
-    description: "Mesure le niveau d'endettement par rapport à la valeur du bien. En Suisse, un LTV > 66% implique un amortissement obligatoire du 2e rang. Au-delà de 80%, le financement est considéré à risque.",
-  },
-  {
-    label: "DSCR (Debt Service Coverage Ratio)",
-    formula: "NOI / Service de dette annuel (intérêts + amortissements)",
-    description: "Capacité du bien à couvrir ses obligations de dette. Un DSCR de 1.0x signifie que le NOI couvre juste le service de dette. En dessous de 1.0x, le bien ne génère pas assez pour couvrir la dette. Les banques exigent généralement > 1.2x.",
-  },
-  {
-    label: "Cash on Cash Return",
-    formula: "((NOI - Service de dette) / Fonds propres) x 100",
-    description: "Rendement sur les fonds propres après paiement de la dette. C'est le rendement réel pour l'investisseur. Les fonds propres sont modifiables pour simuler différents scénarios d'apport.",
-  },
-  {
-    label: "Taux d'occupation",
-    formula: "(Mois occupés / 12 mois) x 100",
-    description: "Part du temps sur l'année où le bien est effectivement loué. 100% = aucune vacance. Ce taux impacte directement les revenus locatifs effectifs et donc tous les indicateurs de rentabilité.",
-  },
-  {
-    label: "Taux de recouvrement",
-    formula: "(Loyers encaissés / Loyers facturés) x 100",
-    description: "Part des loyers qui sont effectivement payés par les locataires. Un taux de 95% signifie que 5% des loyers sont impayés (retards, contentieux, abandons de créance).",
-  },
-];
-
-function KpiGlossary() {
-  const [open, setOpen] = useState(false);
+function ExplainRow({ label, formula, result, description }: { label: string; formula: string; result: string; description: string }) {
   return (
-    <div className="mt-1 mb-2 px-4">
-      <button
-        onClick={() => setOpen(v => !v)}
-        className="flex items-center gap-1.5 text-[11px] text-[#86868b] hover:text-[#1d1d1f] transition-colors"
-      >
-        <span>{open ? "▾" : "▸"}</span>
-        <span className="underline underline-offset-2 decoration-dotted">Comprendre les indicateurs</span>
-      </button>
-      {open && (
-        <div className="mt-3 space-y-3">
-          {kpiExplanations.map(k => (
-            <div key={k.label} className="bg-stone-50/80 rounded-lg px-4 py-3">
-              <div className="text-xs font-semibold text-[#1d1d1f]">{k.label}</div>
-              <div className="text-[11px] text-[#bf5f1a] font-mono mt-0.5">{k.formula}</div>
-              <div className="text-[11px] text-[#86868b] mt-1 leading-relaxed">{k.description}</div>
-            </div>
-          ))}
-        </div>
-      )}
+    <div className="bg-stone-50/80 rounded-lg px-4 py-3">
+      <div className="text-xs font-semibold text-[#1d1d1f]">{label}</div>
+      <div className="text-[11px] text-[#bf5f1a] font-mono mt-0.5 leading-relaxed">{formula} = <span className="font-bold">{result}</span></div>
+      <div className="text-[11px] text-[#86868b] mt-1 leading-relaxed">{description}</div>
     </div>
   );
 }
+
+const f = (n: number) => formatCHF(Math.round(n));
+const pct = (n: number) => `${n.toFixed(2)}%`;
 
 function PropertyCard({ property, availableYears }: { property: PropertyData; availableYears: number[] }) {
   const [occupancy, setOccupancy] = useState(100);
@@ -120,6 +54,7 @@ function PropertyCard({ property, availableYears }: { property: PropertyData; av
   const defaultEquity = property.propertyValue - property.totalDebt;
   const [equityOverride, setEquityOverride] = useState<number>(defaultEquity);
   const [open, setOpen] = useState(false);
+  const [glossaryOpen, setGlossaryOpen] = useState(false);
 
   const p = property;
   const annualCharges = p.chargesByYear[selectedYear] ?? 0;
@@ -137,6 +72,71 @@ function PropertyCard({ property, availableYears }: { property: PropertyData; av
   const ltvColor = ltvVal > 80 ? "text-red-600" : ltvVal > 66 ? "text-amber-600" : "text-emerald-600";
   const dscrColor = dscr < 1 ? "text-red-600" : dscr < 1.2 ? "text-amber-600" : "text-emerald-600";
   const noiColor = noi >= 0 ? "text-emerald-600" : "text-red-600";
+
+  const monthlyRent = p.annualRent / 12;
+
+  const explanations = [
+    {
+      label: "Revenus locatifs effectifs",
+      formula: `${f(monthlyRent)}/mois x 12 x ${occupancy}% x ${recovery}%`,
+      result: f(effectiveRent),
+      description: "Loyer mensuel annualisé, ajusté par le taux d'occupation et le taux de recouvrement.",
+    },
+    {
+      label: `Charges annuelles (${selectedYear})`,
+      formula: `Charges ${selectedYear} pour ${p.label}`,
+      result: hasChargesForYear ? f(annualCharges) : "— (pas de données)",
+      description: "Total des charges d'exploitation : entretien, assurances, gérance, impôts fonciers, provisions travaux.",
+    },
+    {
+      label: "NOI (Net Operating Income)",
+      formula: `${f(effectiveRent)} - ${f(annualCharges)}`,
+      result: f(noi),
+      description: "Ce qui reste après les charges d'exploitation, avant le service de la dette. Un NOI positif = bien rentable opérationnellement.",
+    },
+    {
+      label: "Rendement brut",
+      formula: `(${f(p.annualRent)} / ${f(p.propertyValue)}) x 100`,
+      result: pct(rendementBrut),
+      description: "Ratio loyers bruts / valeur du bien. Comparaison rapide, sans tenir compte des charges ni de la vacance.",
+    },
+    {
+      label: "Rendement net",
+      formula: `(${f(noi)} / ${f(p.propertyValue)}) x 100`,
+      result: pct(rendementNet),
+      description: "Ratio NOI / valeur du bien. Intègre les charges, l'occupation et le recouvrement. Indicateur de rentabilité le plus fiable.",
+    },
+    {
+      label: "LTV (Loan to Value)",
+      formula: `(${f(p.totalDebt)} / ${f(p.propertyValue)}) x 100`,
+      result: `${ltvVal.toFixed(1)}%`,
+      description: `Niveau d'endettement. ${ltvVal > 80 ? "Attention : > 80%, financement à risque." : ltvVal > 66 ? "Entre 66% et 80% : amortissement du 2e rang obligatoire en Suisse." : "< 66% : situation saine, pas d'amortissement obligatoire du 2e rang."}`,
+    },
+    {
+      label: "DSCR (Debt Service Coverage Ratio)",
+      formula: `${f(noi)} / ${f(p.debtService)}`,
+      result: `${dscr.toFixed(2)}x`,
+      description: `Capacité à couvrir la dette (intérêts ${f(p.annualInterest)} + amortissements ${f(p.annualAmort)} = ${f(p.debtService)}/an). ${dscr < 1 ? "< 1x : le bien ne couvre pas sa dette." : dscr < 1.2 ? "Entre 1x et 1.2x : limite, les banques exigent > 1.2x." : "> 1.2x : confortable."}`,
+    },
+    {
+      label: "Cash on Cash Return",
+      formula: `((${f(noi)} - ${f(p.debtService)}) / ${f(equity)}) x 100`,
+      result: pct(cashOnCash),
+      description: `Rendement réel sur vos fonds propres de ${f(equity)}. Après paiement de la dette, il reste ${f(noi - p.debtService)}/an. ${cashOnCash < 0 ? "Négatif : le bien coûte plus qu'il ne rapporte après dette." : "Positif : l'investissement génère un retour."}`,
+    },
+    {
+      label: "Taux d'occupation",
+      formula: `${occupancy}% (paramètre modifiable)`,
+      result: `${occupancy}%`,
+      description: "Part du temps où le bien est loué. 100% = aucune vacance. Impacte directement les revenus effectifs.",
+    },
+    {
+      label: "Taux de recouvrement",
+      formula: `${f(effectiveRent)} / ${f(p.annualRent)} x 100`,
+      result: `${tauxRecouvrement.toFixed(1)}%`,
+      description: "Part des loyers effectivement encaissés. Reflète les impayés, retards et abandons de créance.",
+    },
+  ];
 
   return (
     <div className="glass-card rounded-2xl overflow-hidden">
@@ -189,7 +189,23 @@ function PropertyCard({ property, availableYears }: { property: PropertyData; av
         <KpiBox label="Cash on Cash" value={`${cashOnCash.toFixed(2)}%`} sub={`Equity: ${formatCHF(equity)}`} />
       </div>
 
-      <KpiGlossary />
+      {/* Glossary with real numbers */}
+      <div className="mt-1 mb-2 px-4">
+        <button
+          onClick={() => setGlossaryOpen(v => !v)}
+          className="flex items-center gap-1.5 text-[11px] text-[#86868b] hover:text-[#1d1d1f] transition-colors"
+        >
+          <span>{glossaryOpen ? "▾" : "▸"}</span>
+          <span className="underline underline-offset-2 decoration-dotted">Voir le détail des calculs</span>
+        </button>
+        {glossaryOpen && (
+          <div className="mt-3 space-y-3">
+            {explanations.map(k => (
+              <ExplainRow key={k.label} {...k} />
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* Expandable detail */}
       {open && (
