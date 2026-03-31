@@ -2,8 +2,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { mortgages as defaultMortgages, companies as defaultCompanies } from "../data";
-import { vehicles as defaultVehicles } from "../vehicules/data";
+import { companies as defaultCompanies } from "../data";
 
 interface UserProfile {
   id: string;
@@ -14,7 +13,7 @@ interface UserProfile {
 }
 
 interface Permission {
-  type: "all" | "company" | "mortgage" | "vehicle_all" | "vehicle_company" | "vehicle";
+  type: "all" | "company" | "vehicle_all" | "card";
   value: string | null;
 }
 
@@ -95,17 +94,24 @@ export default function AdminPage() {
   }
 
   const editingUser = users.find(u => u.id === editingUserId);
-  const allCompanies = Array.from(new Set([...defaultCompanies, ...defaultMortgages.map(m => m.company)]));
-  const vehicleCompanies = Array.from(new Set(defaultVehicles.map(v => v.company).filter(Boolean)));
+  const allCompanies = Array.from(new Set(defaultCompanies));
+
+  const companyCards = [
+    "MBA Immobilier SA",
+    "LAEMA Immobilier SA",
+    "MBA Construction SA",
+    "ASV Construction Générale SA",
+    "ASV Fenêtres et Portes SA",
+    "MBA Services SA",
+    "Promotion",
+  ];
 
   function permLabel(p: Permission): string {
     switch (p.type) {
       case "all": return "Hypothèques : Tout voir";
       case "company": return `Hypothèques — Société : ${p.value}`;
-      case "mortgage": return `Hypothèque : ${p.value}`;
       case "vehicle_all": return "Véhicules : Tout voir";
-      case "vehicle_company": return `Véhicules — Société : ${p.value}`;
-      case "vehicle": return `Véhicule : ${p.value}`;
+      case "card": return `Carte : ${p.value}`;
       default: return `${p.type}: ${p.value}`;
     }
   }
@@ -273,39 +279,23 @@ export default function AdminPage() {
                       </button>
                     ))}
                   </div>
-                  <p className="text-xs text-gray-400 mt-3 mb-2">Par hypothèque :</p>
-                  <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto">
-                    {defaultMortgages.map(m => (
-                      <button key={m.id} onClick={() => addPermission("mortgage", m.id)}
-                        className="text-xs bg-gray-50 border border-gray-200 text-gray-700 px-3 py-1.5 rounded-lg hover:bg-gray-100">
-                        {m.label}
-                      </button>
-                    ))}
-                  </div>
 
                   {/* Véhicules permissions */}
                   <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mt-6 mb-3">Véhicules</p>
                   <div className="flex flex-wrap gap-2">
                     <button onClick={() => addPermission("vehicle_all", null)}
                       className="text-xs bg-amber-50 border border-amber-200 text-amber-700 px-3 py-1.5 rounded-lg hover:bg-amber-100">
-                      Tous les véhicules
+                      Accès véhicules
                     </button>
                   </div>
-                  <p className="text-xs text-gray-400 mt-3 mb-2">Par société :</p>
+
+                  {/* Cartes entreprises */}
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mt-6 mb-3">Cartes entreprises</p>
                   <div className="flex flex-wrap gap-2">
-                    {vehicleCompanies.map(c => (
-                      <button key={`vc-${c}`} onClick={() => addPermission("vehicle_company", c)}
-                        className="text-xs bg-blue-50 border border-blue-200 text-blue-700 px-3 py-1.5 rounded-lg hover:bg-blue-100">
+                    {companyCards.map(c => (
+                      <button key={`card-${c}`} onClick={() => addPermission("card", c)}
+                        className="text-xs bg-purple-50 border border-purple-200 text-purple-700 px-3 py-1.5 rounded-lg hover:bg-purple-100">
                         {c}
-                      </button>
-                    ))}
-                  </div>
-                  <p className="text-xs text-gray-400 mt-3 mb-2">Par véhicule :</p>
-                  <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto">
-                    {defaultVehicles.map(v => (
-                      <button key={v.id} onClick={() => addPermission("vehicle", v.id)}
-                        className="text-xs bg-gray-50 border border-gray-200 text-gray-700 px-3 py-1.5 rounded-lg hover:bg-gray-100">
-                        {v.brand} ({v.id})
                       </button>
                     ))}
                   </div>
