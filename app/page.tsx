@@ -103,13 +103,13 @@ export default async function Home() {
         {/* ── Cartes entreprises ─────────────────────────────────── */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {[
-            { name: "MBA Immobilier SA", icon: "🏠", color: "#bf5f1a" },
-            { name: "LAEMA Immobilier SA", icon: "🏢", color: "#0071e3" },
-            { name: "MBA Construction SA", icon: "🏗️", color: "#34c759" },
-            { name: "ASV Construction Générale SA", icon: "🔨", color: "#5856d6" },
-            { name: "ASV Fenêtres et Portes SA", icon: "🪟", color: "#ff9500" },
-            { name: "MBA Services SA", icon: "⚙️", color: "#af52de" },
-            { name: "Promotion", icon: "📐", color: "#ff2d55" },
+            { name: "MBA Immobilier SA", icon: "🏠", color: "#bf5f1a", slug: "mba-immobilier" },
+            { name: "LAEMA Immobilier SA", icon: "🏢", color: "#0071e3", slug: "laema-immobilier" },
+            { name: "MBA Construction SA", icon: "🏗️", color: "#34c759", slug: "mba-construction" },
+            { name: "ASV Construction Générale SA", icon: "🔨", color: "#5856d6", slug: "asv-construction" },
+            { name: "ASV Fenêtres et Portes SA", icon: "🪟", color: "#ff9500", slug: "asv-fenetres" },
+            { name: "MBA Services SA", icon: "⚙️", color: "#af52de", slug: "mba-services" },
+            { name: "Promotion", icon: "📐", color: "#ff2d55", slug: "promotion" },
           ].map((company) => {
             const companyMortgages = mortgages.filter(m => m.company === company.name);
             const companyVehicles = vhcList.filter(v => v.company === company.name);
@@ -118,7 +118,7 @@ export default async function Home() {
             const companyAlerts = companyMortgages.filter(isExpired).length + companyMortgages.filter(isExpiringSoon).length;
 
             return (
-              <div key={company.name} className="group block">
+              <Link key={company.name} href={`/entreprise/${company.slug}`} className="group block">
                 <div className="glass-card rounded-2xl overflow-hidden transition-all duration-300 group-hover:-translate-y-1">
                   <div className="px-5 py-4 flex items-center gap-3 border-b border-white/30">
                     <span className="text-2xl">{company.icon}</span>
@@ -143,10 +143,10 @@ export default async function Home() {
                     ))}
                   </div>
                   <div className="px-5 py-3 flex items-center justify-end">
-                    <span className="text-xs font-medium text-[#86868b]">Détails bientôt →</span>
+                    <span className={`text-xs font-medium text-[${company.color}] group-hover:underline`}>Ouvrir →</span>
                   </div>
                 </div>
-              </div>
+              </Link>
             );
           })}
         </div>
