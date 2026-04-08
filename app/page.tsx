@@ -214,12 +214,24 @@ export default async function Home() {
             </div>
           </Link>
 
-          {/* Placeholder */}
-          <div className="glass-card rounded-2xl flex flex-col items-center justify-center py-10 px-6 text-center opacity-50">
-            <div className="text-3xl mb-3 text-[#86868b]">＋</div>
-            <div className="text-sm font-medium text-[#86868b]">Nouveau module</div>
-            <div className="text-xs text-[#aeaeb2] mt-1">Bientôt disponible</div>
-          </div>
+          {/* Commandes MBA Construction SA */}
+          <Link href="/commandes" className="group block">
+            <div className="glass-card rounded-2xl overflow-hidden transition-all duration-300 group-hover:-translate-y-1">
+              <div className="px-5 py-4 flex items-center gap-3 border-b border-white/30">
+                <span className="text-2xl">📋</span>
+                <div>
+                  <div className="text-base font-semibold text-[#1d1d1f]">Commandes</div>
+                  <div className="text-[11px] text-[#86868b] mt-0.5">MBA Construction SA — déclaration fournisseurs</div>
+                </div>
+              </div>
+              <div className="px-5 py-6 text-sm text-[#86868b]">
+                Saisie rapide des commandes passées : chantier, fournisseur, montant et devis joint.
+              </div>
+              <div className="px-5 py-3 flex items-center justify-end">
+                <span className="text-xs font-medium text-[#34c759] group-hover:underline">Ouvrir →</span>
+              </div>
+            </div>
+          </Link>
         </div>
       </main>
 

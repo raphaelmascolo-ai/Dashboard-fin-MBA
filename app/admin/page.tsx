@@ -13,7 +13,14 @@ interface UserProfile {
 }
 
 interface Permission {
-  type: "all" | "company" | "vehicle_all" | "card";
+  type:
+    | "all"
+    | "company"
+    | "vehicle_all"
+    | "card"
+    | "commande_view"
+    | "commande_create"
+    | "commande_edit";
   value: string | null;
 }
 
@@ -112,6 +119,9 @@ export default function AdminPage() {
       case "company": return `Hypothèques — Société : ${p.value}`;
       case "vehicle_all": return "Véhicules : Tout voir";
       case "card": return `Carte : ${p.value}`;
+      case "commande_view": return "Commandes MBA Construction : Voir";
+      case "commande_create": return "Commandes MBA Construction : Créer";
+      case "commande_edit": return "Commandes MBA Construction : Modifier / Supprimer";
       default: return `${p.type}: ${p.value}`;
     }
   }
@@ -286,6 +296,23 @@ export default function AdminPage() {
                     <button onClick={() => addPermission("vehicle_all", null)}
                       className="text-xs bg-amber-50 border border-amber-200 text-amber-700 px-3 py-1.5 rounded-lg hover:bg-amber-100">
                       Accès véhicules
+                    </button>
+                  </div>
+
+                  {/* Commandes MBA Construction SA */}
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mt-6 mb-3">Commandes MBA Construction SA</p>
+                  <div className="flex flex-wrap gap-2">
+                    <button onClick={() => addPermission("commande_view", null)}
+                      className="text-xs bg-green-50 border border-green-200 text-green-700 px-3 py-1.5 rounded-lg hover:bg-green-100">
+                      Voir le module
+                    </button>
+                    <button onClick={() => addPermission("commande_create", null)}
+                      className="text-xs bg-green-50 border border-green-200 text-green-700 px-3 py-1.5 rounded-lg hover:bg-green-100">
+                      Créer
+                    </button>
+                    <button onClick={() => addPermission("commande_edit", null)}
+                      className="text-xs bg-green-50 border border-green-200 text-green-700 px-3 py-1.5 rounded-lg hover:bg-green-100">
+                      Modifier / Supprimer
                     </button>
                   </div>
 
