@@ -75,7 +75,8 @@ create table if not exists public.planning_assignments (
   site_id     text not null references public.planning_sites(id) on delete cascade,
   day_date    date not null,
   created_at  timestamptz default now(),
-  unique (worker_id, site_id, day_date)
+  -- Un ouvrier ne peut être assigné qu'à une seule chose par jour
+  unique (worker_id, day_date)
 );
 
 create index if not exists planning_assignments_day_idx on public.planning_assignments(day_date);

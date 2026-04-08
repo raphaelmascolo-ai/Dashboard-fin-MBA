@@ -19,7 +19,6 @@ import {
   type Site,
   type Assignment,
   type Holiday,
-  type WorkerRole,
   SYSTEM_LEAVE_ID,
   SYSTEM_INSURANCE_ID,
   SYSTEM_SITE_IDS,
@@ -28,10 +27,14 @@ import {
   startOfWeek,
   addDays,
   toIsoDate,
-  fromIsoDate,
   weekDates,
   formatWeekRange,
   formatDayHeader,
+  formatDayLong,
+  formatDayShort,
+  nextWorkday,
+  previousWorkday,
+  clampToWorkday,
   roleColor,
   roleShort,
   workerLabel,
@@ -47,17 +50,17 @@ interface Permissions {
   assign: boolean;
 }
 
+type ViewMode = "day" | "week";
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const POOL_DROPPABLE_ID = "POOL";
+const SITE_DROPPABLE_PREFIX = "site:";
 
-function cellId(siteId: string, dayDate: string) {
-  return `cell:${siteId}:${dayDate}`;
+function siteDropId(siteId: string) {
+  return `${SITE_DROPPABLE_PREFIX}${siteId}`;
 }
-
-function parseCellId(id: string): { siteId: string; dayDate: string } | null {
-  if (!id.startsWith("cell:")) return null;
-  const [, siteId, dayDate] = id.split(":");
-  return { siteId, dayDate };
+function parseSiteDropId(id: string): string | null {
+  return id.startsWith(SITE_DROPPABLE_PREFIX) ? id.slice(SITE_DROPPABLE_PREFIX.length) : null;
 }
 
 // ── Toast ─────────────────────────────────────────────────────────────────────
@@ -75,19 +78,39 @@ function Toast({ message, type }: { message: string; type: "success" | "error" }
   );
 }
 
-// ── WorkerCard (draggable) ────────────────────────────────────────────────────
-function WorkerCard({
+// ── WorkerChip (read-only badge) ──────────────────────────────────────────────
+function WorkerChip({ worker }: { worker: Worker }) {
+  const c = roleColor(worker.role);
+  return (
+    <span
+      className="inline-flex items-center gap-1.5 rounded-lg border px-2 py-1 text-xs font-semibold whitespace-nowrap"
+      style={{ background: c.bg, color: c.text, borderColor: c.border }}
+    >
+      <span
+        className="inline-flex items-center justify-center w-4 h-4 rounded-full text-[9px] font-bold"
+        style={{ background: c.text, color: c.bg }}
+      >
+        {roleShort(worker.role)}
+      </span>
+      {workerLabel(worker)}
+    </span>
+  );
+}
+
+// ── DraggableWorker ───────────────────────────────────────────────────────────
+function DraggableWorker({
   worker,
   dragId,
-  compact,
 }: {
   worker: Worker;
   dragId: string;
-  compact?: boolean;
 }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: dragId,
-    data: { workerId: worker.id, fromAssignmentId: dragId.startsWith("a:") ? dragId.slice(2) : null },
+    data: {
+      workerId: worker.id,
+      fromAssignmentId: dragId.startsWith("a:") ? dragId.slice(2) : null,
+    },
   });
   const c = roleColor(worker.role);
   return (
@@ -102,10 +125,8 @@ function WorkerCard({
         opacity: isDragging ? 0.4 : 1,
         touchAction: "none",
       }}
-      className={`inline-flex items-center gap-1.5 rounded-lg border px-2 py-1.5 text-xs font-semibold cursor-grab active:cursor-grabbing select-none shadow-sm hover:shadow ${
-        compact ? "" : "min-h-[32px]"
-      }`}
-      title={`${worker.firstName} ${worker.lastName} (${worker.role})`}
+      className="inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-semibold cursor-grab active:cursor-grabbing select-none shadow-sm hover:shadow min-h-[34px]"
+      title={`${worker.firstName} ${worker.lastName}`}
     >
       <span
         className="inline-flex items-center justify-center w-4 h-4 rounded-full text-[9px] font-bold"
@@ -118,47 +139,31 @@ function WorkerCard({
   );
 }
 
-// ── DroppableCell ─────────────────────────────────────────────────────────────
-function DroppableCell({
+// ── DroppableArea (générique pour pool ou site card) ─────────────────────────
+function DroppableArea({
   id,
   isHoliday,
+  className,
   children,
 }: {
   id: string;
-  isHoliday: boolean;
+  isHoliday?: boolean;
+  className?: string;
   children: React.ReactNode;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id, disabled: isHoliday });
   return (
     <div
       ref={setNodeRef}
-      className={`min-h-[60px] p-1.5 align-top transition-colors ${
+      className={`${className ?? ""} transition-colors ${
         isHoliday
           ? "bg-stone-100/60"
           : isOver
-          ? "bg-amber-100/70 ring-2 ring-amber-300 ring-inset"
-          : "bg-white/40 hover:bg-white/60"
+          ? "bg-amber-100/70 ring-2 ring-amber-300"
+          : ""
       }`}
     >
-      <div className="flex flex-wrap gap-1 content-start">{children}</div>
-    </div>
-  );
-}
-
-// ── DroppablePool ─────────────────────────────────────────────────────────────
-function DroppablePool({ children }: { children: React.ReactNode }) {
-  const { setNodeRef, isOver } = useDroppable({ id: POOL_DROPPABLE_ID });
-  return (
-    <div
-      ref={setNodeRef}
-      className={`glass-card rounded-2xl p-3 sm:p-4 min-h-[80px] transition-colors ${
-        isOver ? "bg-blue-50/60 ring-2 ring-blue-300 ring-inset" : ""
-      }`}
-    >
-      <div className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-2">
-        Ouvriers
-      </div>
-      <div className="flex flex-wrap gap-1.5">{children}</div>
+      {children}
     </div>
   );
 }
@@ -248,7 +253,7 @@ function QuickSiteModal({
   );
 }
 
-// ── Modal: Saisir un libellé pour le jour férié ──────────────────────────────
+// ── Modal: libellé jour férié ────────────────────────────────────────────────
 function HolidayLabelModal({
   date,
   onSave,
@@ -264,14 +269,7 @@ function HolidayLabelModal({
       <div className="bg-white/95 backdrop-blur-2xl rounded-t-3xl sm:rounded-2xl shadow-2xl w-full sm:max-w-md overflow-hidden border border-white/50">
         <div className="bg-white/60 border-b border-white/40 px-5 py-4">
           <div className="font-semibold text-base text-[#1d1d1f]">Marquer comme férié</div>
-          <div className="text-[11px] text-[#86868b] mt-0.5">
-            {date.toLocaleDateString("fr-CH", {
-              weekday: "long",
-              day: "numeric",
-              month: "long",
-              year: "numeric",
-            })}
-          </div>
+          <div className="text-[11px] text-[#86868b] mt-0.5">{formatDayLong(date)}</div>
         </div>
         <div className="px-5 py-5 space-y-4">
           <div>
@@ -325,7 +323,9 @@ export default function PlanningDashboard() {
   const [accessError, setAccessError] = useState<string>("");
   const [loading, setLoading] = useState(true);
 
-  const [monday, setMonday] = useState<Date>(() => startOfWeek(new Date()));
+  const [viewMode, setViewMode] = useState<ViewMode>("day");
+  const [currentDay, setCurrentDay] = useState<Date>(() => clampToWorkday(new Date()));
+
   const [workers, setWorkers] = useState<Worker[]>([]);
   const [sites, setSites] = useState<Site[]>([]);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
@@ -343,14 +343,14 @@ export default function PlanningDashboard() {
     setTimeout(() => setToast(null), 2500);
   }, []);
 
-  // ── Sensors ────────────────────────────────────────────────────────────────
+  // Sensors avec délai tactile pour éviter les drags accidentels en scroll
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 8 } }),
     useSensor(KeyboardSensor)
   );
 
-  // ── Chargement initial: permissions + workers + sites ──────────────────────
+  // ── Chargement initial ─────────────────────────────────────────────────────
   useEffect(() => {
     (async () => {
       try {
@@ -380,7 +380,9 @@ export default function PlanningDashboard() {
     })();
   }, []);
 
-  // ── Chargement par semaine: assignments + holidays ─────────────────────────
+  // Charge la semaine englobant le currentDay (la vue jour utilise un sous-ensemble)
+  const monday = useMemo(() => startOfWeek(currentDay), [currentDay]);
+
   const loadWeek = useCallback(async () => {
     const week = toIsoDate(monday);
     const [aRes, hRes] = await Promise.all([
@@ -398,6 +400,7 @@ export default function PlanningDashboard() {
   // ── Indexes ────────────────────────────────────────────────────────────────
   const days = useMemo(() => weekDates(monday), [monday]);
   const dayIsoList = useMemo(() => days.map(toIsoDate), [days]);
+  const currentDayIso = useMemo(() => toIsoDate(currentDay), [currentDay]);
   const holidaySet = useMemo(() => new Set(holidays.map((h) => h.dayDate)), [holidays]);
   const holidayMap = useMemo(() => {
     const m = new Map<string, string>();
@@ -411,18 +414,17 @@ export default function PlanningDashboard() {
     return m;
   }, [workers]);
 
-  // Active sites + system rows en haut (sortés par sort_order)
+  // Sites visibles: actifs + system, system en bas
   const visibleSites = useMemo(() => {
     return sites
       .filter((s) => s.active || s.system)
       .sort((a, b) => {
-        // System rows en bas
         if (a.system !== b.system) return a.system ? 1 : -1;
         return a.sortOrder - b.sortOrder || a.name.localeCompare(b.name);
       });
   }, [sites]);
 
-  // assignmentsByCell[siteId][dayDate] = Assignment[]
+  // Assignations indexées par site/jour
   const assignmentsByCell = useMemo(() => {
     const map: Record<string, Record<string, Assignment[]>> = {};
     assignments.forEach((a) => {
@@ -433,8 +435,16 @@ export default function PlanningDashboard() {
     return map;
   }, [assignments]);
 
-  // Pool = tous les ouvriers actifs (vue "library")
-  const activeWorkers = useMemo(() => workers.filter((w) => w.active), [workers]);
+  // Pool jour-courant: ouvriers actifs NON encore assignés ce jour-là
+  const dayPool = useMemo(() => {
+    const assignedToday = new Set(
+      assignments.filter((a) => a.dayDate === currentDayIso).map((a) => a.workerId)
+    );
+    return workers.filter((w) => w.active && !assignedToday.has(w.id));
+  }, [workers, assignments, currentDayIso]);
+
+  const isCurrentDayHoliday = holidaySet.has(currentDayIso);
+  const currentDayHolidayLabel = holidayMap.get(currentDayIso) ?? "";
 
   // ── Drag handlers ──────────────────────────────────────────────────────────
   function handleDragStart(e: DragStartEvent) {
@@ -455,20 +465,11 @@ export default function PlanningDashboard() {
     if (!data) return;
 
     const overId = String(over.id);
-    const toCell = parseCellId(overId);
-    const toPool = overId === POOL_DROPPABLE_ID;
-    if (!toCell && !toPool) return;
 
-    // Drop sur jour férié → refusé
-    if (toCell && holidaySet.has(toCell.dayDate)) {
-      showToast("Jour férié — assignation impossible", "error");
-      return;
-    }
-
-    // Drop sur le pool depuis une assignation existante = retrait
-    if (toPool && data.fromAssignmentId) {
+    // Drop sur le pool = retrait
+    if (overId === POOL_DROPPABLE_ID) {
+      if (!data.fromAssignmentId) return;
       const id = data.fromAssignmentId;
-      // Optimistic
       setAssignments((prev) => prev.filter((a) => a.id !== id));
       const res = await fetch(`/api/planning/assignments/${id}`, { method: "DELETE" });
       if (!res.ok) {
@@ -478,63 +479,54 @@ export default function PlanningDashboard() {
       return;
     }
 
-    // Drop sur une cellule
-    if (toCell) {
-      // Si on déplace une assignation existante, on la retire d'abord (puis crée la nouvelle)
-      const oldAssignment = data.fromAssignmentId
-        ? assignments.find((a) => a.id === data.fromAssignmentId)
-        : null;
+    // Drop sur un site
+    const targetSiteId = parseSiteDropId(overId);
+    if (!targetSiteId) return;
 
-      // Si même cellule, ne rien faire
-      if (
-        oldAssignment &&
-        oldAssignment.siteId === toCell.siteId &&
-        oldAssignment.dayDate === toCell.dayDate
-      ) {
-        return;
-      }
+    if (isCurrentDayHoliday) {
+      showToast("Jour férié — assignation impossible", "error");
+      return;
+    }
 
-      // Optimistic: ajoute la nouvelle assignation
-      const newAssignment: Assignment = {
-        id: generateAssignmentId(),
-        workerId: data.workerId,
-        siteId: toCell.siteId,
-        dayDate: toCell.dayDate,
-      };
+    const oldAssignment = data.fromAssignmentId
+      ? assignments.find((a) => a.id === data.fromAssignmentId)
+      : null;
 
-      setAssignments((prev) => {
-        const next = oldAssignment ? prev.filter((a) => a.id !== oldAssignment.id) : prev;
-        return [...next, newAssignment];
-      });
+    // Si on drop sur le même site, ne rien faire
+    if (oldAssignment && oldAssignment.siteId === targetSiteId) return;
 
-      // Appels API
-      const tasks: Promise<Response>[] = [];
-      if (oldAssignment) {
-        tasks.push(fetch(`/api/planning/assignments/${oldAssignment.id}`, { method: "DELETE" }));
-      }
-      tasks.push(
-        fetch("/api/planning/assignments", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(newAssignment),
-        })
+    const newAssignment: Assignment = {
+      id: generateAssignmentId(),
+      workerId: data.workerId,
+      siteId: targetSiteId,
+      dayDate: currentDayIso,
+    };
+
+    // Optimistic: retire l'ancienne (ce worker est unique par jour) + ajoute la nouvelle
+    setAssignments((prev) => {
+      const next = prev.filter(
+        (a) => !(a.workerId === data.workerId && a.dayDate === currentDayIso)
       );
-      const results = await Promise.all(tasks);
-      const createRes = results[results.length - 1];
-      if (!createRes.ok) {
-        showToast("Assignation échouée", "error");
-        loadWeek();
-        return;
-      }
-      // Récupère l'ID réel renvoyé par la DB
-      try {
-        const created = await createRes.json();
-        setAssignments((prev) =>
-          prev.map((a) => (a.id === newAssignment.id ? { ...a, id: created.id } : a))
-        );
-      } catch {
-        loadWeek();
-      }
+      return [...next, newAssignment];
+    });
+
+    const res = await fetch("/api/planning/assignments", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(newAssignment),
+    });
+    if (!res.ok) {
+      showToast("Assignation échouée", "error");
+      loadWeek();
+      return;
+    }
+    try {
+      const created = await res.json();
+      setAssignments((prev) =>
+        prev.map((a) => (a.id === newAssignment.id ? { ...a, id: created.id } : a))
+      );
+    } catch {
+      loadWeek();
     }
   }
 
@@ -542,7 +534,6 @@ export default function PlanningDashboard() {
   async function toggleHoliday(date: Date) {
     const iso = toIsoDate(date);
     if (holidaySet.has(iso)) {
-      // Désactive
       const res = await fetch(`/api/planning/holidays/${iso}`, { method: "DELETE" });
       if (!res.ok) {
         showToast("Erreur", "error");
@@ -568,36 +559,40 @@ export default function PlanningDashboard() {
       return;
     }
     setHolidays((prev) => [...prev, { dayDate: iso, label }]);
-    // Vide les assignations locales pour ce jour
     setAssignments((prev) => prev.filter((a) => a.dayDate !== iso));
   }
 
-  // ── Copy week ──────────────────────────────────────────────────────────────
-  async function copyPreviousWeek() {
-    const fromMonday = addDays(monday, -7);
-    const fromWeek = toIsoDate(fromMonday);
-    const toWeek = toIsoDate(monday);
-
-    const hasExisting = assignments.length > 0;
+  // ── Copy day (vue jour) ────────────────────────────────────────────────────
+  async function copyPreviousDay() {
+    const prev = previousWorkday(currentDay);
+    const fromDay = toIsoDate(prev);
+    const toDay = currentDayIso;
+    if (isCurrentDayHoliday) {
+      showToast("Jour férié — copie impossible", "error");
+      return;
+    }
+    const todayCount = assignments.filter((a) => a.dayDate === toDay).length;
     let replace = false;
-    if (hasExisting) {
+    if (todayCount > 0) {
       replace = window.confirm(
-        `Cette semaine contient déjà ${assignments.length} assignation${assignments.length > 1 ? "s" : ""}. Les remplacer par celles de la semaine précédente ?`
+        `Ce jour contient déjà ${todayCount} assignation${todayCount > 1 ? "s" : ""}. Les remplacer par celles de ${formatDayShort(prev).toLowerCase()} ?`
       );
       if (!replace) return;
     }
-
-    const res = await fetch("/api/planning/copy-week", {
+    const res = await fetch("/api/planning/copy-day", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ fromWeek, toWeek, replace }),
+      body: JSON.stringify({ fromDay, toDay, replace }),
     });
     if (!res.ok) {
       showToast("Copie échouée", "error");
       return;
     }
     const data = await res.json();
-    showToast(`${data.inserted} assignation${data.inserted > 1 ? "s" : ""} recopiée${data.inserted > 1 ? "s" : ""}`, "success");
+    showToast(
+      `${data.inserted} assignation${data.inserted > 1 ? "s" : ""} reprise${data.inserted > 1 ? "s" : ""}`,
+      "success"
+    );
     await loadWeek();
   }
 
@@ -626,6 +621,19 @@ export default function PlanningDashboard() {
     const created = await res.json();
     setSites((prev) => [...prev, created]);
     setShowSiteModal(false);
+  }
+
+  // ── Désactivation chantier (depuis la vue jour) ─────────────────────────────
+  async function deactivateSite(site: Site) {
+    if (site.system) return;
+    if (!window.confirm(`Désactiver le chantier « ${site.name} » ?\n\nIl ne sera plus visible dans le planning courant. L'historique reste préservé.`)) return;
+    const res = await fetch(`/api/planning/sites/${site.id}`, { method: "DELETE" });
+    if (!res.ok) {
+      showToast("Désactivation échouée", "error");
+      return;
+    }
+    setSites((prev) => prev.map((s) => (s.id === site.id ? { ...s, active: false } : s)));
+    showToast("Chantier désactivé", "success");
   }
 
   // ── Render ─────────────────────────────────────────────────────────────────
@@ -682,204 +690,361 @@ export default function PlanningDashboard() {
       </header>
 
       <main className="max-w-[1400px] mx-auto px-3 sm:px-5 py-4 sm:py-6">
-        {/* Sélecteur de semaine */}
-        <div className="glass-card rounded-2xl p-3 sm:p-4 mb-4 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
+        {/* Toggle Jour / Semaine */}
+        <div className="flex justify-center mb-4">
+          <div className="inline-flex bg-white/60 border border-white/40 rounded-xl p-1 shadow-sm">
             <button
-              onClick={() => setMonday((m) => addDays(m, -7))}
-              className="w-10 h-10 rounded-xl bg-white/60 hover:bg-white border border-white/40 active:scale-95 transition-all text-lg"
-              aria-label="Semaine précédente"
+              onClick={() => setViewMode("day")}
+              className={`px-4 py-2 text-xs font-semibold rounded-lg transition-all min-h-[40px] ${
+                viewMode === "day"
+                  ? "bg-[#1d1d1f] text-white shadow"
+                  : "text-[#86868b] hover:text-[#1d1d1f]"
+              }`}
             >
-              ‹
+              📅 Jour
             </button>
             <button
-              onClick={() => setMonday((m) => addDays(m, 7))}
-              className="w-10 h-10 rounded-xl bg-white/60 hover:bg-white border border-white/40 active:scale-95 transition-all text-lg"
-              aria-label="Semaine suivante"
+              onClick={() => setViewMode("week")}
+              className={`px-4 py-2 text-xs font-semibold rounded-lg transition-all min-h-[40px] ${
+                viewMode === "week"
+                  ? "bg-[#1d1d1f] text-white shadow"
+                  : "text-[#86868b] hover:text-[#1d1d1f]"
+              }`}
             >
-              ›
+              🗓️ Semaine (lecture)
             </button>
-            <button
-              onClick={() => setMonday(startOfWeek(new Date()))}
-              className="ml-1 px-3 py-2 rounded-xl bg-white/60 hover:bg-white border border-white/40 active:scale-95 transition-all text-xs font-medium min-h-[40px]"
-            >
-              Aujourd&apos;hui
-            </button>
-          </div>
-          <div className="text-sm font-semibold text-[#1d1d1f]">{formatWeekRange(monday)}</div>
-          <div className="flex items-center gap-2">
-            {perms.assign && (
-              <button
-                onClick={copyPreviousWeek}
-                className="px-3 py-2 rounded-xl bg-white/60 hover:bg-white border border-white/40 active:scale-95 transition-all text-xs font-medium min-h-[40px]"
-              >
-                ↺ Reprendre la semaine précédente
-              </button>
-            )}
-            {perms.sites && (
-              <button
-                onClick={() => setShowSiteModal(true)}
-                className="px-3 py-2 rounded-xl bg-[#1d1d1f] text-white hover:bg-[#333] active:scale-95 transition-all text-xs font-semibold min-h-[40px]"
-              >
-                + Chantier
-              </button>
-            )}
           </div>
         </div>
 
-        <DndContext
-          sensors={sensors}
-          onDragStart={handleDragStart}
-          onDragEnd={handleDragEnd}
-        >
-          {/* Pool des ouvriers */}
-          <div className="mb-4">
-            <DroppablePool>
-              {activeWorkers.length === 0 && (
-                <div className="text-xs text-gray-400 italic">
-                  Aucun ouvrier — ajoutez-en via la page Ouvriers.
+        {viewMode === "day" ? (
+          /* ═══════════════════ VUE JOUR ═══════════════════ */
+          <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+            {/* Sélecteur de jour */}
+            <div className="glass-card rounded-2xl p-3 sm:p-4 mb-4">
+              <div className="flex items-center justify-between gap-2 mb-3">
+                <button
+                  onClick={() => setCurrentDay(previousWorkday(currentDay))}
+                  className="w-11 h-11 rounded-xl bg-white/60 hover:bg-white border border-white/40 active:scale-95 transition-all text-lg shrink-0"
+                  aria-label="Jour précédent"
+                >
+                  ‹
+                </button>
+                <div className="flex-1 text-center min-w-0">
+                  <div className="text-base sm:text-lg font-bold text-[#1d1d1f] truncate">
+                    {formatDayLong(currentDay)}
+                  </div>
+                  {isCurrentDayHoliday && (
+                    <div className="mt-1">
+                      <span className="inline-block text-[10px] font-bold uppercase tracking-wide bg-stone-200 text-stone-700 px-2 py-0.5 rounded">
+                        Férié
+                      </span>
+                      {currentDayHolidayLabel && (
+                        <span className="text-[11px] text-stone-600 ml-2">{currentDayHolidayLabel}</span>
+                      )}
+                    </div>
+                  )}
+                </div>
+                <button
+                  onClick={() => setCurrentDay(nextWorkday(currentDay))}
+                  className="w-11 h-11 rounded-xl bg-white/60 hover:bg-white border border-white/40 active:scale-95 transition-all text-lg shrink-0"
+                  aria-label="Jour suivant"
+                >
+                  ›
+                </button>
+              </div>
+
+              <div className="flex flex-wrap items-center justify-center gap-2">
+                <button
+                  onClick={() => setCurrentDay(clampToWorkday(new Date()))}
+                  className="px-3 py-2 rounded-xl bg-white/60 hover:bg-white border border-white/40 active:scale-95 transition-all text-xs font-medium min-h-[40px]"
+                >
+                  Aujourd&apos;hui
+                </button>
+                {perms.assign && !isCurrentDayHoliday && (
+                  <button
+                    onClick={copyPreviousDay}
+                    className="px-3 py-2 rounded-xl bg-white/60 hover:bg-white border border-white/40 active:scale-95 transition-all text-xs font-medium min-h-[40px]"
+                  >
+                    ↺ Reprendre {formatDayShort(previousWorkday(currentDay)).toLowerCase()}
+                  </button>
+                )}
+                {perms.assign && (
+                  <button
+                    onClick={() => toggleHoliday(currentDay)}
+                    className={`px-3 py-2 rounded-xl border active:scale-95 transition-all text-xs font-medium min-h-[40px] ${
+                      isCurrentDayHoliday
+                        ? "bg-stone-200 border-stone-300 text-stone-700"
+                        : "bg-white/60 border-white/40 hover:bg-white"
+                    }`}
+                  >
+                    {isCurrentDayHoliday ? "✕ Retirer férié" : "🚫 Marquer férié"}
+                  </button>
+                )}
+                {perms.sites && (
+                  <button
+                    onClick={() => setShowSiteModal(true)}
+                    className="px-3 py-2 rounded-xl bg-[#1d1d1f] text-white hover:bg-[#333] active:scale-95 transition-all text-xs font-semibold min-h-[40px]"
+                  >
+                    + Chantier
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Pool ouvriers disponibles */}
+            <DroppableArea
+              id={POOL_DROPPABLE_ID}
+              className="glass-card rounded-2xl p-3 sm:p-4 mb-4 min-h-[88px]"
+            >
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">
+                  Ouvriers disponibles
+                </div>
+                <div className="text-[11px] font-semibold text-gray-400">
+                  {dayPool.length} / {workers.filter((w) => w.active).length}
+                </div>
+              </div>
+              {dayPool.length === 0 ? (
+                <div className="text-xs text-gray-400 italic py-2">
+                  {workers.filter((w) => w.active).length === 0
+                    ? "Aucun ouvrier — ajoutez-en via la page Ouvriers."
+                    : "Tous les ouvriers sont placés."}
+                </div>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {dayPool.map((w) => (
+                    <DraggableWorker key={w.id} worker={w} dragId={`pool:${w.id}`} />
+                  ))}
                 </div>
               )}
-              {activeWorkers.map((w) => (
-                <WorkerCard key={w.id} worker={w} dragId={`pool:${w.id}`} />
-              ))}
-            </DroppablePool>
-          </div>
+            </DroppableArea>
 
-          {/* Grille planning */}
-          <div className="glass-card rounded-2xl overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse min-w-[700px]">
-                <thead>
-                  <tr className="bg-white/50 border-b border-white/40">
-                    <th className="sticky left-0 z-10 bg-white/70 backdrop-blur text-left px-3 py-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wide w-[160px] min-w-[140px]">
-                      Chantier
-                    </th>
-                    {days.map((d, i) => {
-                      const iso = dayIsoList[i];
-                      const isHoliday = holidaySet.has(iso);
-                      const label = holidayMap.get(iso) ?? "";
-                      const isToday = toIsoDate(new Date()) === iso;
-                      return (
-                        <th
-                          key={iso}
-                          className={`px-2 py-2 text-center min-w-[120px] border-l border-white/40 ${
-                            isHoliday ? "bg-stone-100/80" : isToday ? "bg-amber-50/60" : ""
-                          }`}
-                        >
-                          <div className="flex flex-col items-center gap-0.5">
-                            <div className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">
-                              <span className="sm:hidden">{WEEKDAY_SHORT[i]}</span>
-                              <span className="hidden sm:inline">{WEEKDAY_LABELS[i]}</span>
-                            </div>
-                            <div className="text-xs text-[#1d1d1f] font-mono">{formatDayHeader(d)}</div>
-                            {isHoliday ? (
-                              <div className="mt-1">
-                                <span className="inline-block text-[9px] font-bold uppercase tracking-wide bg-stone-200 text-stone-700 px-1.5 py-0.5 rounded">
-                                  Férié
-                                </span>
-                                {label && (
-                                  <div className="text-[9px] text-stone-600 mt-0.5 max-w-[100px] truncate">
-                                    {label}
-                                  </div>
-                                )}
-                              </div>
-                            ) : null}
-                            {perms.assign && (
-                              <button
-                                onClick={() => toggleHoliday(d)}
-                                className="text-[9px] text-[#0071e3] hover:underline mt-1 active:scale-95"
-                              >
-                                {isHoliday ? "Retirer férié" : "Marquer férié"}
-                              </button>
+            {/* Liste des chantiers (cards verticales) */}
+            <div className="space-y-3">
+              {visibleSites.map((site) => {
+                const isSystem = SYSTEM_SITE_IDS.includes(site.id);
+                const cellAssignments = assignmentsByCell[site.id]?.[currentDayIso] ?? [];
+                const sideColor = site.color ?? (
+                  site.id === SYSTEM_LEAVE_ID ? "#9ca3af" :
+                  site.id === SYSTEM_INSURANCE_ID ? "#60a5fa" :
+                  "#d4d4d4"
+                );
+                const cardBg = isSystem
+                  ? site.id === SYSTEM_LEAVE_ID
+                    ? "bg-stone-50/80"
+                    : "bg-blue-50/60"
+                  : "bg-white/70";
+
+                return (
+                  <DroppableArea
+                    key={site.id}
+                    id={siteDropId(site.id)}
+                    isHoliday={isCurrentDayHoliday}
+                    className={`rounded-2xl border border-white/60 shadow-sm overflow-hidden ${cardBg}`}
+                  >
+                    <div
+                      className="flex items-stretch"
+                      style={{ borderLeft: `4px solid ${sideColor}` }}
+                    >
+                      <div className="flex-1 min-w-0 p-3 sm:p-4">
+                        <div className="flex items-start justify-between gap-2 mb-2">
+                          <div className="min-w-0 flex-1">
+                            <div className="text-sm font-bold text-[#1d1d1f] truncate">{site.name}</div>
+                            {site.location && (
+                              <div className="text-[11px] text-[#86868b] truncate">{site.location}</div>
                             )}
                           </div>
-                        </th>
-                      );
-                    })}
-                  </tr>
-                </thead>
-                <tbody>
-                  {visibleSites.map((site) => {
-                    const isSystem = SYSTEM_SITE_IDS.includes(site.id);
-                    const rowBg = isSystem
-                      ? site.id === SYSTEM_LEAVE_ID
-                        ? "bg-stone-50/70"
-                        : "bg-blue-50/50"
-                      : "bg-white/30";
-                    return (
-                      <tr key={site.id} className={`border-t border-white/40 ${rowBg}`}>
-                        <td
-                          className={`sticky left-0 z-[5] px-3 py-2 text-xs font-semibold text-[#1d1d1f] min-w-[140px] backdrop-blur ${rowBg}`}
-                          style={{
-                            borderLeft: site.color
-                              ? `3px solid ${site.color}`
-                              : isSystem
-                              ? `3px solid ${site.id === SYSTEM_LEAVE_ID ? "#9ca3af" : "#60a5fa"}`
-                              : "3px solid transparent",
-                          }}
-                        >
-                          <div className="truncate">{site.name}</div>
-                          {site.location && (
-                            <div className="text-[10px] text-gray-400 font-normal truncate">
-                              {site.location}
-                            </div>
+                          {perms.sites && !isSystem && (
+                            <button
+                              onClick={() => deactivateSite(site)}
+                              className="text-[10px] text-red-500 hover:text-red-700 font-medium px-2 py-1 rounded-lg hover:bg-red-50 active:scale-95 transition-all shrink-0"
+                              title="Désactiver ce chantier"
+                            >
+                              ✕ Désactiver
+                            </button>
                           )}
-                        </td>
-                        {dayIsoList.map((iso) => {
-                          const cellAssignments = assignmentsByCell[site.id]?.[iso] ?? [];
-                          const isHoliday = holidaySet.has(iso);
-                          return (
-                            <td key={iso} className="border-l border-white/40 align-top">
-                              <DroppableCell id={cellId(site.id, iso)} isHoliday={isHoliday}>
-                                {cellAssignments.map((a) => {
-                                  const w = workerById.get(a.workerId);
-                                  if (!w) return null;
-                                  return (
-                                    <WorkerCard
-                                      key={a.id}
-                                      worker={w}
-                                      dragId={`a:${a.id}`}
-                                      compact
-                                    />
-                                  );
-                                })}
-                              </DroppableCell>
-                            </td>
-                          );
-                        })}
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                        </div>
+                        <div className="flex flex-wrap gap-1.5 min-h-[40px]">
+                          {cellAssignments.length === 0 ? (
+                            <div className="text-[11px] text-gray-300 italic self-center">
+                              {isCurrentDayHoliday ? "—" : "Glissez un ouvrier ici"}
+                            </div>
+                          ) : (
+                            cellAssignments.map((a) => {
+                              const w = workerById.get(a.workerId);
+                              if (!w) return null;
+                              return (
+                                <DraggableWorker key={a.id} worker={w} dragId={`a:${a.id}`} />
+                              );
+                            })
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </DroppableArea>
+                );
+              })}
             </div>
-          </div>
 
-          <DragOverlay>
-            {activeDragWorker && (
-              <div
-                className="inline-flex items-center gap-1.5 rounded-lg border px-2 py-1.5 text-xs font-semibold shadow-2xl rotate-2"
-                style={{
-                  background: roleColor(activeDragWorker.role).bg,
-                  color: roleColor(activeDragWorker.role).text,
-                  borderColor: roleColor(activeDragWorker.role).border,
-                }}
-              >
-                <span
-                  className="inline-flex items-center justify-center w-4 h-4 rounded-full text-[9px] font-bold"
+            <DragOverlay>
+              {activeDragWorker && (
+                <div
+                  className="inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-semibold shadow-2xl rotate-2"
                   style={{
-                    background: roleColor(activeDragWorker.role).text,
-                    color: roleColor(activeDragWorker.role).bg,
+                    background: roleColor(activeDragWorker.role).bg,
+                    color: roleColor(activeDragWorker.role).text,
+                    borderColor: roleColor(activeDragWorker.role).border,
                   }}
                 >
-                  {roleShort(activeDragWorker.role)}
-                </span>
-                <span className="whitespace-nowrap">{workerLabel(activeDragWorker)}</span>
+                  <span
+                    className="inline-flex items-center justify-center w-4 h-4 rounded-full text-[9px] font-bold"
+                    style={{
+                      background: roleColor(activeDragWorker.role).text,
+                      color: roleColor(activeDragWorker.role).bg,
+                    }}
+                  >
+                    {roleShort(activeDragWorker.role)}
+                  </span>
+                  <span className="whitespace-nowrap">{workerLabel(activeDragWorker)}</span>
+                </div>
+              )}
+            </DragOverlay>
+          </DndContext>
+        ) : (
+          /* ═══════════════════ VUE SEMAINE (lecture seule) ═══════════════════ */
+          <div>
+            {/* Sélecteur de semaine */}
+            <div className="glass-card rounded-2xl p-3 sm:p-4 mb-4 flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setCurrentDay(addDays(monday, -7))}
+                  className="w-11 h-11 rounded-xl bg-white/60 hover:bg-white border border-white/40 active:scale-95 transition-all text-lg"
+                  aria-label="Semaine précédente"
+                >
+                  ‹
+                </button>
+                <button
+                  onClick={() => setCurrentDay(addDays(monday, 7))}
+                  className="w-11 h-11 rounded-xl bg-white/60 hover:bg-white border border-white/40 active:scale-95 transition-all text-lg"
+                  aria-label="Semaine suivante"
+                >
+                  ›
+                </button>
+                <button
+                  onClick={() => setCurrentDay(clampToWorkday(new Date()))}
+                  className="ml-1 px-3 py-2 rounded-xl bg-white/60 hover:bg-white border border-white/40 active:scale-95 transition-all text-xs font-medium min-h-[40px]"
+                >
+                  Aujourd&apos;hui
+                </button>
               </div>
-            )}
-          </DragOverlay>
-        </DndContext>
+              <div className="text-sm font-semibold text-[#1d1d1f]">{formatWeekRange(monday)}</div>
+              <div className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5">
+                Lecture seule — passez en vue Jour pour modifier
+              </div>
+            </div>
+
+            {/* Grille semaine read-only */}
+            <div className="glass-card rounded-2xl overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse min-w-[700px]">
+                  <thead>
+                    <tr className="bg-stone-50 border-b-2 border-gray-300">
+                      <th className="sticky left-0 z-10 bg-stone-50 text-left px-3 py-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wide w-[160px] min-w-[140px] border-r-2 border-gray-300">
+                        Chantier
+                      </th>
+                      {days.map((d, i) => {
+                        const iso = dayIsoList[i];
+                        const isHoliday = holidaySet.has(iso);
+                        const label = holidayMap.get(iso) ?? "";
+                        const isToday = toIsoDate(new Date()) === iso;
+                        return (
+                          <th
+                            key={iso}
+                            className={`px-2 py-3 text-center min-w-[120px] border-r border-gray-200 last:border-r-0 ${
+                              isHoliday ? "bg-stone-200" : isToday ? "bg-amber-100/60" : ""
+                            }`}
+                          >
+                            <div className="flex flex-col items-center gap-0.5">
+                              <div className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">
+                                <span className="sm:hidden">{WEEKDAY_SHORT[i]}</span>
+                                <span className="hidden sm:inline">{WEEKDAY_LABELS[i]}</span>
+                              </div>
+                              <div className="text-xs text-[#1d1d1f] font-mono">{formatDayHeader(d)}</div>
+                              {isHoliday && (
+                                <div className="mt-1">
+                                  <span className="inline-block text-[9px] font-bold uppercase tracking-wide bg-stone-300 text-stone-700 px-1.5 py-0.5 rounded">
+                                    Férié
+                                  </span>
+                                  {label && (
+                                    <div className="text-[9px] text-stone-600 mt-0.5 max-w-[100px] truncate">
+                                      {label}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </th>
+                        );
+                      })}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {visibleSites.map((site, rowIdx) => {
+                      const isSystem = SYSTEM_SITE_IDS.includes(site.id);
+                      const sideColor = site.color ?? (
+                        site.id === SYSTEM_LEAVE_ID ? "#9ca3af" :
+                        site.id === SYSTEM_INSURANCE_ID ? "#60a5fa" :
+                        "#d4d4d4"
+                      );
+                      const rowBg = isSystem
+                        ? site.id === SYSTEM_LEAVE_ID
+                          ? "bg-stone-50"
+                          : "bg-blue-50/40"
+                        : rowIdx % 2 === 0
+                        ? "bg-white"
+                        : "bg-stone-50/60";
+                      return (
+                        <tr key={site.id} className={`border-b-2 border-gray-200 ${rowBg}`}>
+                          <td
+                            className={`sticky left-0 z-[5] px-3 py-3 text-xs font-semibold text-[#1d1d1f] min-w-[140px] border-r-2 border-gray-300 ${rowBg}`}
+                            style={{ borderLeft: `4px solid ${sideColor}` }}
+                          >
+                            <div className="truncate">{site.name}</div>
+                            {site.location && (
+                              <div className="text-[10px] text-gray-400 font-normal truncate">
+                                {site.location}
+                              </div>
+                            )}
+                          </td>
+                          {dayIsoList.map((iso) => {
+                            const cellAssignments = assignmentsByCell[site.id]?.[iso] ?? [];
+                            const isHoliday = holidaySet.has(iso);
+                            return (
+                              <td
+                                key={iso}
+                                className={`border-r border-gray-200 last:border-r-0 align-top p-1.5 min-h-[60px] ${
+                                  isHoliday ? "bg-stone-100" : ""
+                                }`}
+                              >
+                                <div className="flex flex-wrap gap-1 content-start">
+                                  {cellAssignments.map((a) => {
+                                    const w = workerById.get(a.workerId);
+                                    if (!w) return null;
+                                    return <WorkerChip key={a.id} worker={w} />;
+                                  })}
+                                </div>
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Liens vers pages secondaires sur mobile */}
         <div className="sm:hidden mt-4 flex gap-2">

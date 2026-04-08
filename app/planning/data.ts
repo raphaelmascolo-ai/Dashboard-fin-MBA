@@ -71,6 +71,32 @@ export function weekDates(monday: Date): Date[] {
   return [0, 1, 2, 3, 4].map((i) => addDays(monday, i));
 }
 
+// Renvoie le jour ouvré suivant (Lun-Ven). Vendredi → Lundi suivant, week-end → Lundi.
+export function nextWorkday(d: Date): Date {
+  const day = d.getDay();
+  if (day === 5) return addDays(d, 3); // Ven → Lun
+  if (day === 6) return addDays(d, 2); // Sam → Lun
+  if (day === 0) return addDays(d, 1); // Dim → Lun
+  return addDays(d, 1);
+}
+
+// Renvoie le jour ouvré précédent (Lun-Ven). Lundi → Vendredi précédent.
+export function previousWorkday(d: Date): Date {
+  const day = d.getDay();
+  if (day === 1) return addDays(d, -3); // Lun → Ven
+  if (day === 0) return addDays(d, -2); // Dim → Ven
+  if (day === 6) return addDays(d, -1); // Sam → Ven
+  return addDays(d, -1);
+}
+
+// Si la date tombe un week-end, ramène au lundi suivant.
+export function clampToWorkday(d: Date): Date {
+  const day = d.getDay();
+  if (day === 0) return addDays(d, 1);
+  if (day === 6) return addDays(d, 2);
+  return d;
+}
+
 export function formatWeekRange(monday: Date): string {
   const friday = addDays(monday, 4);
   const sameMonth = monday.getMonth() === friday.getMonth();
@@ -88,6 +114,22 @@ export function formatWeekRange(monday: Date): string {
 
 export function formatDayHeader(d: Date): string {
   return d.toLocaleDateString("fr-CH", { day: "2-digit", month: "2-digit" });
+}
+
+// Format long: "Lundi 14 avril 2026"
+export function formatDayLong(d: Date): string {
+  return d.toLocaleDateString("fr-CH", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
+
+// Format court avec jour de la semaine: "Lundi 14"
+export function formatDayShort(d: Date): string {
+  const weekday = d.toLocaleDateString("fr-CH", { weekday: "long" });
+  return `${weekday.charAt(0).toUpperCase()}${weekday.slice(1)} ${d.getDate()}`;
 }
 
 // ── Couleurs par rôle ─────────────────────────────────────────────────────────

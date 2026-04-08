@@ -53,6 +53,8 @@ export async function GET(req: Request) {
 }
 
 // POST /api/planning/assignments → create
+// 1 ouvrier max par jour: si l'ouvrier a déjà une assignation ce jour-là,
+// elle est remplacée (delete-then-insert atomique).
 export async function POST(req: Request) {
   const supabase = await createClient();
   const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -72,24 +74,18 @@ export async function POST(req: Request) {
     .maybeSingle();
   if (holiday) return NextResponse.json({ error: "Jour férié" }, { status: 409 });
 
+  // Supprime toute assignation existante pour cet ouvrier ce jour-là
+  await admin
+    .from("planning_assignments")
+    .delete()
+    .eq("worker_id", body.workerId)
+    .eq("day_date", body.dayDate);
+
   const { data, error } = await admin
     .from("planning_assignments")
     .insert(toRow(body))
     .select()
     .single();
-  if (error) {
-    // Conflit unique key = doublon, on retourne l'existant comme succès
-    if (error.code === "23505") {
-      const { data: existing } = await admin
-        .from("planning_assignments")
-        .select("*")
-        .eq("worker_id", body.workerId)
-        .eq("site_id", body.siteId)
-        .eq("day_date", body.dayDate)
-        .single();
-      if (existing) return NextResponse.json(fromRow(existing), { status: 200 });
-    }
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json(fromRow(data), { status: 201 });
 }

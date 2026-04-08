@@ -72,7 +72,18 @@ export async function POST(req: Request) {
       .lte("day_date", toFri);
   }
 
-  // 5. Construit les nouvelles lignes en décalant les dates
+  // 5. Récupère les ouvriers déjà assignés dans la semaine cible
+  // (pour ne pas violer la contrainte unique worker/day)
+  const { data: existing } = await admin
+    .from("planning_assignments")
+    .select("worker_id, day_date")
+    .gte("day_date", toWeek)
+    .lte("day_date", toFri);
+  const existingKeys = new Set(
+    (existing ?? []).map((e) => `${e.worker_id}|${e.day_date}`)
+  );
+
+  // 6. Construit les nouvelles lignes en décalant les dates
   const dayDelta =
     (new Date(toWeek + "T00:00:00").getTime() -
       new Date(fromWeek + "T00:00:00").getTime()) /
@@ -82,6 +93,9 @@ export async function POST(req: Request) {
     .map((r) => {
       const newDay = addDays(r.day_date, dayDelta);
       if (holidaySet.has(newDay)) return null;
+      if (existingKeys.has(`${r.worker_id}|${newDay}`)) return null;
+      // Marque comme déjà pris pour éviter doublons dans la même requête
+      existingKeys.add(`${r.worker_id}|${newDay}`);
       return {
         id: `AS-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`,
         worker_id: r.worker_id,
@@ -93,10 +107,7 @@ export async function POST(req: Request) {
 
   if (rows.length === 0) return NextResponse.json({ inserted: 0 });
 
-  // Insertion avec onConflict do nothing
-  const { error: insErr } = await admin
-    .from("planning_assignments")
-    .upsert(rows, { onConflict: "worker_id,site_id,day_date", ignoreDuplicates: true });
+  const { error: insErr } = await admin.from("planning_assignments").insert(rows);
   if (insErr) return NextResponse.json({ error: insErr.message }, { status: 500 });
 
   return NextResponse.json({ inserted: rows.length });
