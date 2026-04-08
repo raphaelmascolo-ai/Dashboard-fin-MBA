@@ -70,6 +70,25 @@ export default async function MbaConstructionPage() {
               </div>
             </div>
           </Link>
+
+          {/* Vue annuelle chantiers */}
+          <Link href="/planning/annuel" className="group block">
+            <div className="glass-card rounded-2xl overflow-hidden transition-all duration-300 group-hover:-translate-y-1 h-full flex flex-col">
+              <div className="px-5 py-4 flex items-center gap-3 border-b border-white/30">
+                <span className="text-2xl">🗓️</span>
+                <div>
+                  <div className="text-base font-semibold text-[#1d1d1f]">Vue annuelle chantiers</div>
+                  <div className="text-[11px] text-[#86868b] mt-0.5">Kanban semaine par semaine</div>
+                </div>
+              </div>
+              <div className="px-5 py-5 text-sm text-[#86868b] flex-1">
+                52 colonnes pour planifier les chantiers à long terme. Glissez librement, les chantiers sont partagés avec le planning hebdo.
+              </div>
+              <div className="px-5 py-3 flex items-center justify-end border-t border-white/30 bg-white/20">
+                <span className="text-xs font-semibold text-[#5856d6] group-hover:underline">Ouvrir la vue →</span>
+              </div>
+            </div>
+          </Link>
         </div>
       </main>
     </div>

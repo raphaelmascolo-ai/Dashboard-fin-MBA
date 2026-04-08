@@ -17,6 +17,8 @@ interface Permissions {
   workers: boolean;
   sites: boolean;
   assign: boolean;
+  yearView: boolean;
+  yearPlace: boolean;
 }
 
 function inputCls(err?: string) {
@@ -158,6 +160,8 @@ export default function OuvriersPage() {
     workers: false,
     sites: false,
     assign: false,
+    yearView: false,
+    yearPlace: false,
   });
   const [accessError, setAccessError] = useState<string>("");
   const [loading, setLoading] = useState(true);

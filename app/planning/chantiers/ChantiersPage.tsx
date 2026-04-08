@@ -10,6 +10,8 @@ interface Permissions {
   workers: boolean;
   sites: boolean;
   assign: boolean;
+  yearView: boolean;
+  yearPlace: boolean;
 }
 
 const PRESET_COLORS = [
@@ -170,6 +172,8 @@ export default function ChantiersPage() {
     workers: false,
     sites: false,
     assign: false,
+    yearView: false,
+    yearPlace: false,
   });
   const [accessError, setAccessError] = useState<string>("");
   const [loading, setLoading] = useState(true);

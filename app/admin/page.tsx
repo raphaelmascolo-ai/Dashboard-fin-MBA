@@ -23,7 +23,9 @@ interface Permission {
     | "planning_view"
     | "planning_workers"
     | "planning_sites"
-    | "planning_assign";
+    | "planning_assign"
+    | "planning_year_view"
+    | "planning_year_place";
   value: string | null;
 }
 
@@ -129,6 +131,8 @@ export default function AdminPage() {
       case "planning_workers": return "Planning Chantiers : Gérer les ouvriers";
       case "planning_sites": return "Planning Chantiers : Gérer les chantiers";
       case "planning_assign": return "Planning Chantiers : Modifier les assignations";
+      case "planning_year_view": return "Vue annuelle chantiers : Voir";
+      case "planning_year_place": return "Vue annuelle chantiers : Placer / déplacer";
       default: return `${p.type}: ${p.value}`;
     }
   }
@@ -336,6 +340,19 @@ export default function AdminPage() {
                     <button onClick={() => addPermission("planning_sites", null)}
                       className="text-xs bg-indigo-50 border border-indigo-200 text-indigo-700 px-3 py-1.5 rounded-lg hover:bg-indigo-100">
                       Gérer les chantiers
+                    </button>
+                  </div>
+
+                  {/* Vue annuelle chantiers */}
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mt-6 mb-3">Vue annuelle chantiers</p>
+                  <div className="flex flex-wrap gap-2">
+                    <button onClick={() => addPermission("planning_year_view", null)}
+                      className="text-xs bg-fuchsia-50 border border-fuchsia-200 text-fuchsia-700 px-3 py-1.5 rounded-lg hover:bg-fuchsia-100">
+                      Voir
+                    </button>
+                    <button onClick={() => addPermission("planning_year_place", null)}
+                      className="text-xs bg-fuchsia-50 border border-fuchsia-200 text-fuchsia-700 px-3 py-1.5 rounded-lg hover:bg-fuchsia-100">
+                      Placer / déplacer
                     </button>
                   </div>
 

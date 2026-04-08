@@ -132,6 +132,98 @@ export function formatDayShort(d: Date): string {
   return `${weekday.charAt(0).toUpperCase()}${weekday.slice(1)} ${d.getDate()}`;
 }
 
+// ── Vue annuelle (ISO weeks) ─────────────────────────────────────────────────
+
+export interface YearPlacement {
+  id: string;
+  siteId: string;
+  year: number;
+  isoWeek: number;
+}
+
+// Calcule l'année et le numéro de semaine ISO 8601 d'une date.
+// Référence: la semaine 1 est celle qui contient le premier jeudi de l'année.
+export function getIsoWeek(d: Date): { year: number; week: number } {
+  const target = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  const dayNum = target.getUTCDay() || 7;
+  target.setUTCDate(target.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(target.getUTCFullYear(), 0, 1));
+  const week = Math.ceil(((target.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+  return { year: target.getUTCFullYear(), week };
+}
+
+// Renvoie le lundi de la semaine ISO donnée (year, week).
+export function getMondayOfIsoWeek(year: number, week: number): Date {
+  // ISO 8601: la semaine 1 contient le jeudi 4 janvier
+  const jan4 = new Date(Date.UTC(year, 0, 4));
+  const jan4Day = jan4.getUTCDay() || 7;
+  // Lundi de la semaine 1
+  const mondayWeek1 = new Date(jan4);
+  mondayWeek1.setUTCDate(jan4.getUTCDate() - jan4Day + 1);
+  // Lundi de la semaine demandée
+  const result = new Date(mondayWeek1);
+  result.setUTCDate(mondayWeek1.getUTCDate() + (week - 1) * 7);
+  // Convertit en Date locale
+  return new Date(result.getUTCFullYear(), result.getUTCMonth(), result.getUTCDate());
+}
+
+// Nombre de semaines ISO dans une année (52 ou 53).
+export function weeksInYear(year: number): number {
+  const dec28 = new Date(year, 11, 28);
+  return getIsoWeek(dec28).week;
+}
+
+// Liste des semaines d'une année avec leurs métadonnées.
+export interface IsoWeekInfo {
+  year: number;
+  week: number;
+  monday: Date;
+  sunday: Date;
+  monthIndex: number; // mois du jeudi de la semaine (0-11), pour grouper visuellement
+}
+
+export function listWeeksOfYear(year: number): IsoWeekInfo[] {
+  const total = weeksInYear(year);
+  const out: IsoWeekInfo[] = [];
+  for (let w = 1; w <= total; w++) {
+    const monday = getMondayOfIsoWeek(year, w);
+    const sunday = addDays(monday, 6);
+    const thursday = addDays(monday, 3);
+    out.push({ year, week: w, monday, sunday, monthIndex: thursday.getMonth() });
+  }
+  return out;
+}
+
+const FR_MONTHS = [
+  "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
+  "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre",
+];
+const FR_MONTHS_SHORT = [
+  "janv.", "févr.", "mars", "avr.", "mai", "juin",
+  "juil.", "août", "sept.", "oct.", "nov.", "déc.",
+];
+
+export function monthLabel(idx: number): string {
+  return FR_MONTHS[idx] ?? "";
+}
+
+export function monthLabelShort(idx: number): string {
+  return FR_MONTHS_SHORT[idx] ?? "";
+}
+
+// "27 avr – 1 mai" pour une semaine
+export function formatWeekDates(monday: Date, sunday: Date): string {
+  const sameMonth = monday.getMonth() === sunday.getMonth();
+  if (sameMonth) {
+    return `${monday.getDate()} – ${sunday.getDate()} ${monthLabelShort(monday.getMonth())}`;
+  }
+  return `${monday.getDate()} ${monthLabelShort(monday.getMonth())} – ${sunday.getDate()} ${monthLabelShort(sunday.getMonth())}`;
+}
+
+export function generateYearPlacementId(): string {
+  return `YP-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
+}
+
 // ── Couleurs par rôle ─────────────────────────────────────────────────────────
 export function roleColor(role: WorkerRole): { bg: string; text: string; border: string } {
   switch (role) {

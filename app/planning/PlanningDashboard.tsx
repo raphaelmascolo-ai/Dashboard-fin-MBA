@@ -48,6 +48,8 @@ interface Permissions {
   workers: boolean;
   sites: boolean;
   assign: boolean;
+  yearView: boolean;
+  yearPlace: boolean;
 }
 
 type ViewMode = "day" | "week";
@@ -319,6 +321,8 @@ export default function PlanningDashboard() {
     workers: false,
     sites: false,
     assign: false,
+    yearView: false,
+    yearPlace: false,
   });
   const [accessError, setAccessError] = useState<string>("");
   const [loading, setLoading] = useState(true);
@@ -669,6 +673,16 @@ export default function PlanningDashboard() {
             Planning Chantiers
           </div>
           <div className="flex items-center gap-1">
+            {perms.yearView && (
+              <Link
+                href="/planning/annuel"
+                className="inline-flex items-center gap-1 px-2.5 py-2 text-xs font-medium text-[#1d1d1f] bg-white/60 border border-white/40 rounded-xl hover:bg-white/80 active:scale-95 transition-all min-h-[44px]"
+                title="Vue annuelle Kanban"
+              >
+                <span className="hidden sm:inline">🗓️ Annuel</span>
+                <span className="sm:hidden">🗓️</span>
+              </Link>
+            )}
             {perms.workers && (
               <Link
                 href="/planning/ouvriers"
