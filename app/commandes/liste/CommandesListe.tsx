@@ -450,6 +450,26 @@ export default function CommandesListe() {
     setSaving(false);
   }
 
+  async function quickValidate(c: Commande, e: React.MouseEvent) {
+    e.stopPropagation();
+    if (
+      !window.confirm(
+        `Valider cette commande ?\n\n${c.fournisseur} — ${formatCHF(c.amount)}\n${c.description}\n\nElle sera retirée de la liste.`
+      )
+    )
+      return;
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/commandes/${c.id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Suppression impossible");
+      showToast("Commande validée ✓", "success");
+      await loadAll();
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Erreur", "error");
+    }
+    setSaving(false);
+  }
+
   async function handleDelete(id: string) {
     setSaving(true);
     try {
@@ -631,6 +651,7 @@ export default function CommandesListe() {
                       Montant{sortIcon("amount")}
                     </th>
                     <th className="px-4 py-3 text-center">Devis</th>
+                    <th className="px-4 py-3 text-right">Action</th>
                     <th className="px-4 py-3"></th>
                   </tr>
                 </thead>
@@ -667,6 +688,16 @@ export default function CommandesListe() {
                       </td>
                       <td className="px-4 py-3 text-right">
                         <button
+                          onClick={(e) => quickValidate(c, e)}
+                          disabled={saving}
+                          className="text-xs font-semibold bg-green-50 border border-green-200 text-green-700 px-3 py-1.5 rounded-lg hover:bg-green-100 active:bg-green-200 disabled:opacity-50 whitespace-nowrap"
+                          title="Valider et retirer de la liste"
+                        >
+                          ✓ Valider
+                        </button>
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <button
                           onClick={() => setEditing(c)}
                           className="text-xs text-[#0071e3] hover:underline font-medium"
                         >
@@ -682,25 +713,34 @@ export default function CommandesListe() {
             {/* Mobile cards */}
             <div className="sm:hidden divide-y divide-gray-100">
               {filtered.map((c) => (
-                <div
-                  key={c.id}
-                  onClick={() => setEditing(c)}
-                  className="px-4 py-3 hover:bg-white/40 cursor-pointer"
-                >
-                  <div className="flex items-center justify-between gap-2 mb-1">
-                    <div className="text-xs font-mono text-[#86868b]">{formatDate(c.orderDate)}</div>
-                    <div className="text-sm font-semibold text-[#bf5f1a]">{formatCHF(c.amount)}</div>
+                <div key={c.id} className="px-4 py-3 hover:bg-white/40 flex gap-3">
+                  <div
+                    onClick={() => setEditing(c)}
+                    className="flex-1 min-w-0 cursor-pointer"
+                  >
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <div className="text-xs font-mono text-[#86868b]">{formatDate(c.orderDate)}</div>
+                      <div className="text-sm font-semibold text-[#bf5f1a]">{formatCHF(c.amount)}</div>
+                    </div>
+                    <div className="text-sm font-semibold text-[#1d1d1f] truncate">{c.fournisseur}</div>
+                    <div className="text-xs text-gray-500 truncate">{c.chantier} · {c.description}</div>
+                    {c.devisPath && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); downloadDevis(c); }}
+                        className="mt-1 text-[10px] bg-blue-50 border border-blue-200 text-blue-700 px-2 py-0.5 rounded-full hover:bg-blue-100"
+                      >
+                        📎 Devis
+                      </button>
+                    )}
                   </div>
-                  <div className="text-sm font-semibold text-[#1d1d1f] truncate">{c.fournisseur}</div>
-                  <div className="text-xs text-gray-500 truncate">{c.chantier} · {c.description}</div>
-                  {c.devisPath && (
-                    <button
-                      onClick={(e) => { e.stopPropagation(); downloadDevis(c); }}
-                      className="mt-1 text-[10px] bg-blue-50 border border-blue-200 text-blue-700 px-2 py-0.5 rounded-full hover:bg-blue-100"
-                    >
-                      📎 Devis
-                    </button>
-                  )}
+                  <button
+                    onClick={(e) => quickValidate(c, e)}
+                    disabled={saving}
+                    className="self-center shrink-0 text-sm font-semibold bg-green-50 border border-green-200 text-green-700 px-3 py-2 rounded-lg hover:bg-green-100 active:bg-green-200 disabled:opacity-50"
+                    title="Valider et retirer"
+                  >
+                    ✓
+                  </button>
                 </div>
               ))}
             </div>
