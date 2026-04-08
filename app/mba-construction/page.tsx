@@ -52,12 +52,24 @@ export default async function MbaConstructionPage() {
             </div>
           </Link>
 
-          {/* Placeholder */}
-          <div className="glass-card rounded-2xl flex flex-col items-center justify-center py-10 px-6 text-center opacity-50">
-            <div className="text-3xl mb-3 text-[#86868b]">＋</div>
-            <div className="text-sm font-medium text-[#86868b]">Bientôt disponible</div>
-            <div className="text-xs text-[#aeaeb2] mt-1">Nouveaux outils à venir</div>
-          </div>
+          {/* Planning Chantiers */}
+          <Link href="/planning" className="group block">
+            <div className="glass-card rounded-2xl overflow-hidden transition-all duration-300 group-hover:-translate-y-1 h-full flex flex-col">
+              <div className="px-5 py-4 flex items-center gap-3 border-b border-white/30">
+                <span className="text-2xl">📅</span>
+                <div>
+                  <div className="text-base font-semibold text-[#1d1d1f]">Planning Chantiers</div>
+                  <div className="text-[11px] text-[#86868b] mt-0.5">Ouvriers × jours × chantiers</div>
+                </div>
+              </div>
+              <div className="px-5 py-5 text-sm text-[#86868b] flex-1">
+                Planning hebdomadaire visuel : glissez-déposez les ouvriers sur les chantiers.
+              </div>
+              <div className="px-5 py-3 flex items-center justify-end border-t border-white/30 bg-white/20">
+                <span className="text-xs font-semibold text-[#0071e3] group-hover:underline">Ouvrir le planning →</span>
+              </div>
+            </div>
+          </Link>
         </div>
       </main>
     </div>

@@ -1,0 +1,34 @@
+import { createAdminClient } from "../../lib/supabase/admin";
+
+export type PlanningPerm = "view" | "workers" | "sites" | "assign";
+
+export async function getRole(userId: string): Promise<"admin" | "viewer"> {
+  const admin = createAdminClient();
+  const { data } = await admin.from("user_profiles").select("role").eq("id", userId).single();
+  return (data?.role as "admin" | "viewer") ?? "viewer";
+}
+
+export async function getPlanningPerms(userId: string): Promise<{
+  isAdmin: boolean;
+  view: boolean;
+  workers: boolean;
+  sites: boolean;
+  assign: boolean;
+}> {
+  const role = await getRole(userId);
+  if (role === "admin") {
+    return { isAdmin: true, view: true, workers: true, sites: true, assign: true };
+  }
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("user_permissions")
+    .select("type")
+    .eq("user_id", userId)
+    .in("type", ["planning_view", "planning_workers", "planning_sites", "planning_assign"]);
+  const types = new Set((data ?? []).map((p) => p.type as string));
+  const workers = types.has("planning_workers");
+  const sites = types.has("planning_sites");
+  const assign = types.has("planning_assign");
+  const view = workers || sites || assign || types.has("planning_view");
+  return { isAdmin: false, view, workers, sites, assign };
+}

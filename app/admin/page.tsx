@@ -19,7 +19,11 @@ interface Permission {
     | "card"
     | "commande_view"
     | "commande_create"
-    | "commande_edit";
+    | "commande_edit"
+    | "planning_view"
+    | "planning_workers"
+    | "planning_sites"
+    | "planning_assign";
   value: string | null;
 }
 
@@ -121,6 +125,10 @@ export default function AdminPage() {
       case "commande_view": return "Commandes MBA Construction : Voir";
       case "commande_create": return "Commandes MBA Construction : Créer";
       case "commande_edit": return "Commandes MBA Construction : Modifier / Supprimer";
+      case "planning_view": return "Planning Chantiers : Voir";
+      case "planning_workers": return "Planning Chantiers : Gérer les ouvriers";
+      case "planning_sites": return "Planning Chantiers : Gérer les chantiers";
+      case "planning_assign": return "Planning Chantiers : Modifier les assignations";
       default: return `${p.type}: ${p.value}`;
     }
   }
@@ -307,6 +315,27 @@ export default function AdminPage() {
                     <button onClick={() => addPermission("commande_edit", null)}
                       className="text-xs bg-green-50 border border-green-200 text-green-700 px-3 py-1.5 rounded-lg hover:bg-green-100">
                       Modifier / Supprimer
+                    </button>
+                  </div>
+
+                  {/* Planning Chantiers */}
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mt-6 mb-3">Planning Chantiers</p>
+                  <div className="flex flex-wrap gap-2">
+                    <button onClick={() => addPermission("planning_view", null)}
+                      className="text-xs bg-indigo-50 border border-indigo-200 text-indigo-700 px-3 py-1.5 rounded-lg hover:bg-indigo-100">
+                      Voir le planning
+                    </button>
+                    <button onClick={() => addPermission("planning_assign", null)}
+                      className="text-xs bg-indigo-50 border border-indigo-200 text-indigo-700 px-3 py-1.5 rounded-lg hover:bg-indigo-100">
+                      Modifier les assignations
+                    </button>
+                    <button onClick={() => addPermission("planning_workers", null)}
+                      className="text-xs bg-indigo-50 border border-indigo-200 text-indigo-700 px-3 py-1.5 rounded-lg hover:bg-indigo-100">
+                      Gérer les ouvriers
+                    </button>
+                    <button onClick={() => addPermission("planning_sites", null)}
+                      className="text-xs bg-indigo-50 border border-indigo-200 text-indigo-700 px-3 py-1.5 rounded-lg hover:bg-indigo-100">
+                      Gérer les chantiers
                     </button>
                   </div>
 
