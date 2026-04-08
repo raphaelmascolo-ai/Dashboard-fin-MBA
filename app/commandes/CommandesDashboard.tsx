@@ -1,6 +1,5 @@
 "use client";
 import { useState, useEffect, useCallback, useRef } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import {
   type Commande,
@@ -9,6 +8,7 @@ import {
   DEVIS_MAX_BYTES,
 } from "./data";
 import { createClient } from "../lib/supabase/client";
+import NavButton from "../components/NavButton";
 
 // ── Form helpers ──────────────────────────────────────────────────────────────
 function inputCls(err?: string) {
@@ -211,40 +211,23 @@ export default function CommandesDashboard() {
   return (
     <div className="min-h-screen bg-warm">
       <header className="glass sticky top-0 z-20 border-b border-white/30">
-        <div className="max-w-xl mx-auto px-4 sm:px-5 py-3 sm:py-4 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3 min-w-0 flex-1">
-            <div className="relative w-9 h-9 shrink-0">
-              <Image src="/logo.png" alt="MBA Groupe SA" fill className="object-contain" />
-            </div>
-            <div className="min-w-0">
-              <div className="text-sm sm:text-base font-semibold text-[#1d1d1f] truncate">Déclarer une commande</div>
-              <div className="text-[11px] text-[#86868b] tracking-wide truncate">{COMMANDE_COMPANY}</div>
-            </div>
+        <div className="max-w-xl mx-auto px-3 sm:px-5 py-2 sm:py-3 flex items-center justify-between gap-2">
+          <NavButton href="/mba-construction" label="Retour" />
+          <div className="text-sm font-semibold text-[#1d1d1f] truncate text-center flex-1">
+            Déclarer une commande
           </div>
-          <div className="flex items-center gap-1.5 shrink-0">
-            {isAdmin && (
-              <Link
-                href="/commandes/liste"
-                title="Voir la liste"
-                className="text-xs font-medium text-[#1d1d1f] bg-white/60 hover:bg-white/80 border border-white/40 rounded-xl px-2.5 sm:px-3 py-2 transition-all"
-              >
-                <span aria-hidden>☰</span>
-                <span className="hidden sm:inline ml-1">Liste</span>
-              </Link>
-            )}
-            <Link
-              href="/"
-              title="Accueil"
-              className="text-xs font-medium text-[#86868b] hover:text-[#1d1d1f] bg-white/40 hover:bg-white/60 border border-white/30 rounded-xl px-2.5 sm:px-3 py-2 transition-all"
-            >
-              <span aria-hidden>←</span>
-              <span className="hidden sm:inline ml-1">Accueil</span>
-            </Link>
-          </div>
+          {isAdmin ? (
+            <NavButton href="/commandes/liste" label="Liste" direction="forward" />
+          ) : (
+            <div className="w-[44px]" />
+          )}
         </div>
       </header>
 
       <main className="max-w-xl mx-auto px-5 py-6 sm:py-8">
+        <div className="text-center text-[11px] text-[#86868b] uppercase tracking-wide mb-4">
+          {COMMANDE_COMPANY}
+        </div>
         <form onSubmit={handleSubmit} className="glass-card rounded-2xl p-5 sm:p-6 space-y-4">
           <FormField label="Date de la commande *" error={errors.orderDate}>
             <input

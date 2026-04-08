@@ -1,8 +1,8 @@
-import Image from "next/image";
 import Link from "next/link";
 import { createClient } from "../lib/supabase/server";
 import { formatCHF, isExpired, isExpiringSoon, calcAnnualInterest, ratio, type Mortgage } from "../data";
 import HeaderActions from "../components/HeaderActions";
+import NavButton from "../components/NavButton";
 import { type Vehicle } from "../vehicules/data";
 
 function eff(m: Mortgage, v: number) { return v * ratio(m); }
@@ -69,27 +69,12 @@ export default async function FinancePage() {
   return (
     <div className="min-h-screen bg-warm">
       <header className="glass sticky top-0 z-20 border-b border-white/30">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
-            <div className="relative w-9 h-9 shrink-0">
-              <Image src="/logo.png" alt="MBA Groupe SA" fill className="object-contain" />
-            </div>
-            <div className="min-w-0">
-              <div className="text-base font-semibold text-[#1d1d1f] truncate">Finance</div>
-              <div className="text-[11px] text-[#86868b] tracking-wide truncate">MBA Groupe SA</div>
-            </div>
+        <div className="max-w-5xl mx-auto px-3 sm:px-5 py-2 sm:py-3 flex items-center justify-between gap-2">
+          <NavButton href="/" label="Accueil" />
+          <div className="text-sm font-semibold text-[#1d1d1f] truncate text-center flex-1">
+            Finance
           </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <Link
-              href="/"
-              title="Accueil"
-              className="text-xs font-medium text-[#86868b] hover:text-[#1d1d1f] bg-white/40 hover:bg-white/60 border border-white/30 rounded-xl px-2.5 sm:px-3 py-2 transition-all"
-            >
-              <span aria-hidden>←</span>
-              <span className="hidden sm:inline ml-1">Accueil</span>
-            </Link>
-            <HeaderActions isAdmin={isAdmin} />
-          </div>
+          <HeaderActions isAdmin={isAdmin} />
         </div>
       </header>
 

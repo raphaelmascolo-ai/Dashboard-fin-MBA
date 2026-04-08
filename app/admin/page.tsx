@@ -1,8 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
-import Link from "next/link";
-import Image from "next/image";
 import { companies as defaultCompanies } from "../data";
+import NavButton from "../components/NavButton";
 
 interface UserProfile {
   id: string;
@@ -128,18 +127,13 @@ export default function AdminPage() {
 
   return (
     <div className="min-h-screen bg-warm">
-      <header className="glass border-b border-white/30">
-        <div className="max-w-4xl mx-auto px-6 py-5 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="relative w-9 h-9 shrink-0">
-              <Image src="/logo.png" alt="MBA Groupe SA" fill className="object-contain" />
-            </div>
-            <div>
-              <div className="text-base font-semibold text-[#1d1d1f] leading-tight">MBA Groupe SA</div>
-              <div className="text-[11px] text-[#86868b] tracking-wide mt-0.5">Administration</div>
-            </div>
+      <header className="glass border-b border-white/30 sticky top-0 z-20">
+        <div className="max-w-4xl mx-auto px-3 sm:px-5 py-2 sm:py-3 flex items-center justify-between gap-2">
+          <NavButton href="/" label="Accueil" />
+          <div className="text-sm font-semibold text-[#1d1d1f] truncate text-center flex-1">
+            Administration
           </div>
-          <Link href="/" className="text-xs text-[#0071e3] font-medium hover:underline">← Accueil</Link>
+          <div className="w-[44px]" aria-hidden />
         </div>
       </header>
 

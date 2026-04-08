@@ -1,15 +1,14 @@
 "use client";
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import {
   type Commande,
-  COMMANDE_COMPANY,
   formatCHF,
   formatDate,
   DEVIS_MAX_BYTES,
 } from "../data";
 import { createClient } from "../../lib/supabase/client";
+import NavButton from "../../components/NavButton";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function inputCls(err?: string) {
@@ -511,37 +510,13 @@ export default function CommandesListe() {
   return (
     <div className="min-h-screen bg-warm">
       <header className="glass sticky top-0 z-20 border-b border-white/30">
-        <div className="max-w-6xl mx-auto px-4 sm:px-5 py-3 sm:py-4 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3 min-w-0 flex-1">
-            <div className="relative w-9 h-9 shrink-0">
-              <Image src="/logo.png" alt="MBA Groupe SA" fill className="object-contain" />
-            </div>
-            <div className="min-w-0">
-              <div className="text-sm sm:text-base font-semibold text-[#1d1d1f] truncate">
-                <span className="sm:hidden">Liste commandes</span>
-                <span className="hidden sm:inline">Commandes — Liste admin</span>
-              </div>
-              <div className="text-[11px] text-[#86868b] tracking-wide truncate">{COMMANDE_COMPANY}</div>
-            </div>
+        <div className="max-w-6xl mx-auto px-3 sm:px-5 py-2 sm:py-3 flex items-center justify-between gap-2">
+          <NavButton href="/commandes" label="Retour" />
+          <div className="text-sm font-semibold text-[#1d1d1f] truncate text-center flex-1">
+            <span className="sm:hidden">Commandes</span>
+            <span className="hidden sm:inline">Liste des commandes</span>
           </div>
-          <div className="flex items-center gap-1.5 shrink-0">
-            <Link
-              href="/commandes"
-              title="Déclarer une commande"
-              className="text-xs font-medium text-[#86868b] hover:text-[#1d1d1f] bg-white/40 hover:bg-white/60 border border-white/30 rounded-xl px-2.5 sm:px-3 py-2 transition-all"
-            >
-              <span aria-hidden>+</span>
-              <span className="hidden sm:inline ml-1">Déclarer</span>
-            </Link>
-            <Link
-              href="/"
-              title="Accueil"
-              className="text-xs font-medium text-[#86868b] hover:text-[#1d1d1f] bg-white/40 hover:bg-white/60 border border-white/30 rounded-xl px-2.5 sm:px-3 py-2 transition-all"
-            >
-              <span aria-hidden>←</span>
-              <span className="hidden sm:inline ml-1">Accueil</span>
-            </Link>
-          </div>
+          <div className="w-[44px]" aria-hidden />
         </div>
       </header>
 
