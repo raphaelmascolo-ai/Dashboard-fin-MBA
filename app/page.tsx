@@ -214,21 +214,21 @@ export default async function Home() {
             </div>
           </Link>
 
-          {/* Commandes MBA Construction SA */}
+          {/* Déclarer une commande MBA Construction SA */}
           <Link href="/commandes" className="group block">
-            <div className="glass-card rounded-2xl overflow-hidden transition-all duration-300 group-hover:-translate-y-1">
+            <div className="glass-card rounded-2xl overflow-hidden transition-all duration-300 group-hover:-translate-y-1 h-full flex flex-col">
               <div className="px-5 py-4 flex items-center gap-3 border-b border-white/30">
                 <span className="text-2xl">📋</span>
                 <div>
-                  <div className="text-base font-semibold text-[#1d1d1f]">Commandes</div>
-                  <div className="text-[11px] text-[#86868b] mt-0.5">MBA Construction SA — déclaration fournisseurs</div>
+                  <div className="text-base font-semibold text-[#1d1d1f]">Déclarer une commande</div>
+                  <div className="text-[11px] text-[#86868b] mt-0.5">MBA Construction SA</div>
                 </div>
               </div>
-              <div className="px-5 py-6 text-sm text-[#86868b]">
-                Saisie rapide des commandes passées : chantier, fournisseur, montant et devis joint.
+              <div className="px-5 py-5 text-sm text-[#86868b] flex-1">
+                Formulaire rapide pour enregistrer une commande fournisseur en moins d&apos;une minute.
               </div>
-              <div className="px-5 py-3 flex items-center justify-end">
-                <span className="text-xs font-medium text-[#34c759] group-hover:underline">Ouvrir →</span>
+              <div className="px-5 py-3 flex items-center justify-end border-t border-white/30 bg-white/20">
+                <span className="text-xs font-semibold text-[#34c759] group-hover:underline">Ouvrir le formulaire →</span>
               </div>
             </div>
           </Link>
