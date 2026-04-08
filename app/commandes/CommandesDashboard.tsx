@@ -211,30 +211,34 @@ export default function CommandesDashboard() {
   return (
     <div className="min-h-screen bg-warm">
       <header className="glass sticky top-0 z-20 border-b border-white/30">
-        <div className="max-w-xl mx-auto px-5 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3 min-w-0">
+        <div className="max-w-xl mx-auto px-4 sm:px-5 py-3 sm:py-4 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0 flex-1">
             <div className="relative w-9 h-9 shrink-0">
               <Image src="/logo.png" alt="MBA Groupe SA" fill className="object-contain" />
             </div>
             <div className="min-w-0">
-              <div className="text-base font-semibold text-[#1d1d1f] truncate">Déclarer une commande</div>
-              <div className="text-[11px] text-[#86868b] tracking-wide">{COMMANDE_COMPANY}</div>
+              <div className="text-sm sm:text-base font-semibold text-[#1d1d1f] truncate">Déclarer une commande</div>
+              <div className="text-[11px] text-[#86868b] tracking-wide truncate">{COMMANDE_COMPANY}</div>
             </div>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-1.5 shrink-0">
             {isAdmin && (
               <Link
                 href="/commandes/liste"
-                className="text-xs font-medium text-[#1d1d1f] bg-white/60 hover:bg-white/80 border border-white/40 rounded-xl px-3 py-2 transition-all"
+                title="Voir la liste"
+                className="text-xs font-medium text-[#1d1d1f] bg-white/60 hover:bg-white/80 border border-white/40 rounded-xl px-2.5 sm:px-3 py-2 transition-all"
               >
-                ☰ Liste
+                <span aria-hidden>☰</span>
+                <span className="hidden sm:inline ml-1">Liste</span>
               </Link>
             )}
             <Link
               href="/"
-              className="text-xs font-medium text-[#86868b] hover:text-[#1d1d1f] bg-white/40 hover:bg-white/60 border border-white/30 rounded-xl px-3 py-2 transition-all"
+              title="Accueil"
+              className="text-xs font-medium text-[#86868b] hover:text-[#1d1d1f] bg-white/40 hover:bg-white/60 border border-white/30 rounded-xl px-2.5 sm:px-3 py-2 transition-all"
             >
-              ← Accueil
+              <span aria-hidden>←</span>
+              <span className="hidden sm:inline ml-1">Accueil</span>
             </Link>
           </div>
         </div>

@@ -511,28 +511,35 @@ export default function CommandesListe() {
   return (
     <div className="min-h-screen bg-warm">
       <header className="glass sticky top-0 z-20 border-b border-white/30">
-        <div className="max-w-6xl mx-auto px-5 py-4 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3 min-w-0">
+        <div className="max-w-6xl mx-auto px-4 sm:px-5 py-3 sm:py-4 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0 flex-1">
             <div className="relative w-9 h-9 shrink-0">
               <Image src="/logo.png" alt="MBA Groupe SA" fill className="object-contain" />
             </div>
             <div className="min-w-0">
-              <div className="text-base font-semibold text-[#1d1d1f] truncate">Commandes — Liste admin</div>
-              <div className="text-[11px] text-[#86868b] tracking-wide">{COMMANDE_COMPANY}</div>
+              <div className="text-sm sm:text-base font-semibold text-[#1d1d1f] truncate">
+                <span className="sm:hidden">Liste commandes</span>
+                <span className="hidden sm:inline">Commandes — Liste admin</span>
+              </div>
+              <div className="text-[11px] text-[#86868b] tracking-wide truncate">{COMMANDE_COMPANY}</div>
             </div>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-1.5 shrink-0">
             <Link
               href="/commandes"
-              className="text-xs font-medium text-[#86868b] hover:text-[#1d1d1f] bg-white/40 hover:bg-white/60 border border-white/30 rounded-xl px-3 py-2 transition-all"
+              title="Déclarer une commande"
+              className="text-xs font-medium text-[#86868b] hover:text-[#1d1d1f] bg-white/40 hover:bg-white/60 border border-white/30 rounded-xl px-2.5 sm:px-3 py-2 transition-all"
             >
-              + Déclarer
+              <span aria-hidden>+</span>
+              <span className="hidden sm:inline ml-1">Déclarer</span>
             </Link>
             <Link
               href="/"
-              className="text-xs font-medium text-[#86868b] hover:text-[#1d1d1f] bg-white/40 hover:bg-white/60 border border-white/30 rounded-xl px-3 py-2 transition-all"
+              title="Accueil"
+              className="text-xs font-medium text-[#86868b] hover:text-[#1d1d1f] bg-white/40 hover:bg-white/60 border border-white/30 rounded-xl px-2.5 sm:px-3 py-2 transition-all"
             >
-              ← Accueil
+              <span aria-hidden>←</span>
+              <span className="hidden sm:inline ml-1">Accueil</span>
             </Link>
           </div>
         </div>
@@ -719,8 +726,8 @@ export default function CommandesListe() {
                     className="flex-1 min-w-0 cursor-pointer"
                   >
                     <div className="flex items-center justify-between gap-2 mb-1">
-                      <div className="text-xs font-mono text-[#86868b]">{formatDate(c.orderDate)}</div>
-                      <div className="text-sm font-semibold text-[#bf5f1a]">{formatCHF(c.amount)}</div>
+                      <div className="text-xs font-mono text-[#86868b] whitespace-nowrap shrink-0">{formatDate(c.orderDate)}</div>
+                      <div className="text-sm font-semibold text-[#bf5f1a] whitespace-nowrap shrink-0">{formatCHF(c.amount)}</div>
                     </div>
                     <div className="text-sm font-semibold text-[#1d1d1f] truncate">{c.fournisseur}</div>
                     <div className="text-xs text-gray-500 truncate">{c.chantier} · {c.description}</div>
