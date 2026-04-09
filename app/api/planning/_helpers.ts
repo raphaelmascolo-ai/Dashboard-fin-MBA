@@ -37,6 +37,7 @@ export async function getPlanningPerms(userId: string): Promise<PlanningPerms> {
     .select("type")
     .eq("user_id", userId)
     .in("type", [
+      "access_mba_construction",
       "planning_view",
       "planning_workers",
       "planning_sites",
@@ -45,11 +46,15 @@ export async function getPlanningPerms(userId: string): Promise<PlanningPerms> {
       "planning_year_place",
     ]);
   const types = new Set((data ?? []).map((p) => p.type as string));
-  const workers = types.has("planning_workers");
-  const sites = types.has("planning_sites");
-  const assign = types.has("planning_assign");
-  const view = workers || sites || assign || types.has("planning_view");
-  const yearPlace = types.has("planning_year_place");
-  const yearView = yearPlace || types.has("planning_year_view");
+
+  // access_mba_construction = accès complet à tous les modules MBA Construction
+  const fullAccess = types.has("access_mba_construction");
+
+  const workers = fullAccess || types.has("planning_workers");
+  const sites = fullAccess || types.has("planning_sites");
+  const assign = fullAccess || types.has("planning_assign");
+  const view = fullAccess || workers || sites || assign || types.has("planning_view");
+  const yearPlace = fullAccess || types.has("planning_year_place");
+  const yearView = fullAccess || yearPlace || types.has("planning_year_view");
   return { isAdmin: false, view, workers, sites, assign, yearView, yearPlace };
 }

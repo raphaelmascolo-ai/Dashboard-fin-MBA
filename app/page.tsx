@@ -12,9 +12,23 @@ export default async function Home() {
   const { data: { user } } = await supabase.auth.getUser();
 
   let isAdmin = false;
+  let hasFinance = false;
+  let hasVehicules = false;
+  let hasMbaConstruction = false;
   if (user) {
     const { data: profile } = await supabase.from("user_profiles").select("role").eq("id", user.id).single();
     isAdmin = profile?.role === "admin";
+    if (isAdmin) {
+      hasFinance = true;
+      hasVehicules = true;
+      hasMbaConstruction = true;
+    } else {
+      const { data: perms } = await supabase.from("user_permissions").select("type").eq("user_id", user.id);
+      const types = new Set((perms ?? []).map((p) => p.type as string));
+      hasFinance = types.has("access_finance") || types.has("all") || types.has("company");
+      hasVehicules = types.has("access_vehicules") || types.has("vehicle_all");
+      hasMbaConstruction = types.has("access_mba_construction") || types.has("commande_view") || types.has("commande_create") || types.has("planning_view") || types.has("planning_assign");
+    }
   }
 
   let mortgages: Mortgage[] = [];
@@ -100,7 +114,7 @@ export default async function Home() {
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
           {/* ── Finance ──────────────────────────────────────── */}
-          <Link href="/finance" className="group block">
+          {hasFinance && <Link href="/finance" className="group block">
             <div className="mba-card h-full flex flex-col">
               <div className="px-5 py-5 flex items-center gap-3 border-b border-gray-100">
                 <div className="w-12 h-12 rounded-xl bg-[#fef3c7] flex items-center justify-center text-2xl shrink-0">
@@ -126,10 +140,10 @@ export default async function Home() {
                 <span className="text-xs font-bold text-[#1a1a1a] group-hover:text-[#ca8a04] transition-colors">Ouvrir →</span>
               </div>
             </div>
-          </Link>
+          </Link>}
 
           {/* ── Véhicules ───────────────────────────────────── */}
-          <Link href="/vehicules" className="group block">
+          {hasVehicules && <Link href="/vehicules" className="group block">
             <div className="mba-card h-full flex flex-col">
               <div className="px-5 py-5 flex items-center gap-3 border-b border-gray-100">
                 <div className="w-12 h-12 rounded-xl bg-[#fef3c7] flex items-center justify-center text-2xl shrink-0">
@@ -154,10 +168,10 @@ export default async function Home() {
                 <span className="text-xs font-bold text-[#1a1a1a] group-hover:text-[#ca8a04] transition-colors">Ouvrir →</span>
               </div>
             </div>
-          </Link>
+          </Link>}
 
           {/* ── MBA Construction SA ─────────────────────────── */}
-          <Link href="/mba-construction" className="group block">
+          {hasMbaConstruction && <Link href="/mba-construction" className="group block">
             <div className="mba-card h-full flex flex-col">
               <div className="px-5 py-5 flex items-center gap-3 border-b border-gray-100">
                 <div className="w-12 h-12 rounded-xl bg-[#fef3c7] flex items-center justify-center text-2xl shrink-0">
@@ -175,7 +189,7 @@ export default async function Home() {
                 <span className="text-xs font-bold text-[#1a1a1a] group-hover:text-[#ca8a04] transition-colors">Ouvrir →</span>
               </div>
             </div>
-          </Link>
+          </Link>}
         </div>
       </main>
 

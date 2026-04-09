@@ -12,20 +12,7 @@ interface UserProfile {
 }
 
 interface Permission {
-  type:
-    | "all"
-    | "company"
-    | "vehicle_all"
-    | "card"
-    | "commande_view"
-    | "commande_create"
-    | "commande_edit"
-    | "planning_view"
-    | "planning_workers"
-    | "planning_sites"
-    | "planning_assign"
-    | "planning_year_view"
-    | "planning_year_place";
+  type: string;
   value: string | null;
 }
 
@@ -120,20 +107,36 @@ export default function AdminPage() {
 
   function permLabel(p: Permission): string {
     switch (p.type) {
+      case "access_finance": return "🏦 Finance";
+      case "access_vehicules": return "🚗 Véhicules";
+      case "access_mba_construction": return "🏗️ MBA Construction SA";
+      // Legacy / granulaires
       case "all": return "Hypothèques : Tout voir";
       case "company": return `Hypothèques — Société : ${p.value}`;
       case "vehicle_all": return "Véhicules : Tout voir";
-      case "card": return `Carte : ${p.value}`;
-      case "commande_view": return "Commandes MBA Construction : Voir";
-      case "commande_create": return "Commandes MBA Construction : Créer";
-      case "commande_edit": return "Commandes MBA Construction : Modifier / Supprimer";
-      case "planning_view": return "Planning Chantiers : Voir";
-      case "planning_workers": return "Planning Chantiers : Gérer les ouvriers";
-      case "planning_sites": return "Planning Chantiers : Gérer les chantiers";
-      case "planning_assign": return "Planning Chantiers : Modifier les assignations";
-      case "planning_year_view": return "Vue annuelle chantiers : Voir";
-      case "planning_year_place": return "Vue annuelle chantiers : Placer / déplacer";
-      default: return `${p.type}: ${p.value}`;
+      case "card": return `Carte entreprise : ${p.value}`;
+      case "commande_view": return "Commandes : Voir";
+      case "commande_create": return "Commandes : Créer";
+      case "commande_edit": return "Commandes : Modifier / Supprimer";
+      case "planning_view": return "Planning : Voir";
+      case "planning_workers": return "Planning : Ouvriers";
+      case "planning_sites": return "Planning : Chantiers";
+      case "planning_assign": return "Planning : Assignations";
+      case "planning_year_view": return "Vue annuelle : Voir";
+      case "planning_year_place": return "Vue annuelle : Placer";
+      default: return `${p.type}${p.value ? `: ${p.value}` : ""}`;
+    }
+  }
+
+  function hasAccess(type: string) {
+    return permissions.some(p => p.type === type);
+  }
+
+  function toggleAccess(type: string) {
+    if (hasAccess(type)) {
+      setPermissions(permissions.filter(p => p.type !== type));
+    } else {
+      setPermissions([...permissions, { type, value: null }]);
     }
   }
 
@@ -276,93 +279,38 @@ export default function AdminPage() {
                   </div>
                 )}
 
-                {/* Add permission */}
+                {/* Accès par univers */}
                 <div className="border-t border-gray-100 pt-4">
-                  {/* Hypothèques permissions */}
-                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Hypothèques</p>
-                  <div className="flex flex-wrap gap-2">
-                    <button onClick={() => addPermission("all", null)}
-                      className="text-xs bg-amber-50 border border-amber-200 text-amber-700 px-3 py-1.5 rounded-lg hover:bg-amber-100">
-                      Toutes les hypothèques
-                    </button>
-                  </div>
-                  <p className="text-xs text-gray-400 mt-3 mb-2">Par société :</p>
-                  <div className="flex flex-wrap gap-2">
-                    {allCompanies.map(c => (
-                      <button key={c} onClick={() => addPermission("company", c)}
-                        className="text-xs bg-blue-50 border border-blue-200 text-blue-700 px-3 py-1.5 rounded-lg hover:bg-blue-100">
-                        {c}
-                      </button>
-                    ))}
-                  </div>
-
-                  {/* Véhicules permissions */}
-                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mt-6 mb-3">Véhicules</p>
-                  <div className="flex flex-wrap gap-2">
-                    <button onClick={() => addPermission("vehicle_all", null)}
-                      className="text-xs bg-amber-50 border border-amber-200 text-amber-700 px-3 py-1.5 rounded-lg hover:bg-amber-100">
-                      Accès véhicules
-                    </button>
-                  </div>
-
-                  {/* Commandes MBA Construction SA */}
-                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mt-6 mb-3">Commandes MBA Construction SA</p>
-                  <div className="flex flex-wrap gap-2">
-                    <button onClick={() => addPermission("commande_view", null)}
-                      className="text-xs bg-green-50 border border-green-200 text-green-700 px-3 py-1.5 rounded-lg hover:bg-green-100">
-                      Voir le module
-                    </button>
-                    <button onClick={() => addPermission("commande_create", null)}
-                      className="text-xs bg-green-50 border border-green-200 text-green-700 px-3 py-1.5 rounded-lg hover:bg-green-100">
-                      Créer
-                    </button>
-                    <button onClick={() => addPermission("commande_edit", null)}
-                      className="text-xs bg-green-50 border border-green-200 text-green-700 px-3 py-1.5 rounded-lg hover:bg-green-100">
-                      Modifier / Supprimer
-                    </button>
-                  </div>
-
-                  {/* Planning Chantiers */}
-                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mt-6 mb-3">Planning Chantiers</p>
-                  <div className="flex flex-wrap gap-2">
-                    <button onClick={() => addPermission("planning_view", null)}
-                      className="text-xs bg-indigo-50 border border-indigo-200 text-indigo-700 px-3 py-1.5 rounded-lg hover:bg-indigo-100">
-                      Voir le planning
-                    </button>
-                    <button onClick={() => addPermission("planning_assign", null)}
-                      className="text-xs bg-indigo-50 border border-indigo-200 text-indigo-700 px-3 py-1.5 rounded-lg hover:bg-indigo-100">
-                      Modifier les assignations
-                    </button>
-                    <button onClick={() => addPermission("planning_workers", null)}
-                      className="text-xs bg-indigo-50 border border-indigo-200 text-indigo-700 px-3 py-1.5 rounded-lg hover:bg-indigo-100">
-                      Gérer les ouvriers
-                    </button>
-                    <button onClick={() => addPermission("planning_sites", null)}
-                      className="text-xs bg-indigo-50 border border-indigo-200 text-indigo-700 px-3 py-1.5 rounded-lg hover:bg-indigo-100">
-                      Gérer les chantiers
-                    </button>
-                  </div>
-
-                  {/* Vue annuelle chantiers */}
-                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mt-6 mb-3">Vue annuelle chantiers</p>
-                  <div className="flex flex-wrap gap-2">
-                    <button onClick={() => addPermission("planning_year_view", null)}
-                      className="text-xs bg-fuchsia-50 border border-fuchsia-200 text-fuchsia-700 px-3 py-1.5 rounded-lg hover:bg-fuchsia-100">
-                      Voir
-                    </button>
-                    <button onClick={() => addPermission("planning_year_place", null)}
-                      className="text-xs bg-fuchsia-50 border border-fuchsia-200 text-fuchsia-700 px-3 py-1.5 rounded-lg hover:bg-fuchsia-100">
-                      Placer / déplacer
-                    </button>
-                  </div>
-
-                  {/* Cartes entreprises */}
-                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mt-6 mb-3">Cartes entreprises</p>
-                  <div className="flex flex-wrap gap-2">
-                    {companyCards.map(c => (
-                      <button key={`card-${c}`} onClick={() => addPermission("card", c)}
-                        className="text-xs bg-purple-50 border border-purple-200 text-purple-700 px-3 py-1.5 rounded-lg hover:bg-purple-100">
-                        {c}
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-4">Accès aux modules</p>
+                  <div className="space-y-3">
+                    {[
+                      { type: "access_finance", icon: "🏦", label: "Finance", desc: "Hypothèques, sociétés, cartes entreprises" },
+                      { type: "access_vehicules", icon: "🚗", label: "Véhicules", desc: "Flotte, machines, leasings" },
+                      { type: "access_mba_construction", icon: "🏗️", label: "MBA Construction SA", desc: "Commandes, planning chantiers, vue annuelle" },
+                    ].map((mod) => (
+                      <button
+                        key={mod.type}
+                        onClick={() => toggleAccess(mod.type)}
+                        className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border text-left transition-all active:scale-[0.98] ${
+                          hasAccess(mod.type)
+                            ? "bg-[#fef3c7] border-[#facc15] shadow-sm"
+                            : "bg-white border-gray-200 hover:border-gray-300 hover:bg-gray-50"
+                        }`}
+                      >
+                        <span className="text-2xl shrink-0">{mod.icon}</span>
+                        <div className="flex-1 min-w-0">
+                          <div className={`text-sm font-bold ${hasAccess(mod.type) ? "text-[#1a1a1a]" : "text-gray-500"}`}>
+                            {mod.label}
+                          </div>
+                          <div className="text-[11px] text-gray-400 truncate">{mod.desc}</div>
+                        </div>
+                        <div className={`w-10 h-6 rounded-full relative transition-colors shrink-0 ${
+                          hasAccess(mod.type) ? "bg-[#facc15]" : "bg-gray-200"
+                        }`}>
+                          <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${
+                            hasAccess(mod.type) ? "translate-x-[18px]" : "translate-x-0.5"
+                          }`} />
+                        </div>
                       </button>
                     ))}
                   </div>

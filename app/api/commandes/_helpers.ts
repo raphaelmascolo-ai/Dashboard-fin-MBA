@@ -21,10 +21,14 @@ export async function getCommandePerms(userId: string): Promise<CommandePerms> {
     .from("user_permissions")
     .select("type")
     .eq("user_id", userId)
-    .in("type", ["commande_view", "commande_create", "commande_edit"]);
+    .in("type", ["access_mba_construction", "commande_view", "commande_create", "commande_edit"]);
   const types = new Set((perms ?? []).map((p) => p.type as string));
-  const create = types.has("commande_create");
-  const edit = types.has("commande_edit");
-  const view = create || edit || types.has("commande_view");
+
+  // access_mba_construction = accès complet
+  const fullAccess = types.has("access_mba_construction");
+
+  const create = fullAccess || types.has("commande_create");
+  const edit = fullAccess || types.has("commande_edit");
+  const view = fullAccess || create || edit || types.has("commande_view");
   return { isAdmin: false, view, create, edit };
 }
