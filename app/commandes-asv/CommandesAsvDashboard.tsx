@@ -229,7 +229,7 @@ export default function CommandesAsvDashboard() {
             Déclarer une commande
           </div>
           {isAdmin ? (
-            <NavButton href="/commandes/liste" label="Liste" direction="forward" />
+            <NavButton href="/commandes-asv/liste" label="Liste" direction="forward" />
           ) : (
             <div className="w-[44px]" />
           )}

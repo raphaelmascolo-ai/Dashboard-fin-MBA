@@ -57,23 +57,28 @@ async function hasPermission(userId: string, types: string[]): Promise<boolean> 
   return (data ?? []).length > 0;
 }
 
-// GET /api/commandes
-export async function GET() {
+// GET /api/commandes?company=MBA+Construction+SA
+export async function GET(req: Request) {
   const supabase = await createClient();
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   if (authError || !user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const role = await getRole(user.id);
   if (role !== "admin") {
-    const ok = await hasPermission(user.id, ["commande_view", "commande_create", "commande_edit"]);
+    const ok = await hasPermission(user.id, [
+      "access_mba_construction", "access_asv_fenetres",
+      "commande_view", "commande_create", "commande_edit",
+    ]);
     if (!ok) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const { data, error } = await supabase
-    .from("commandes")
-    .select("*")
-    .order("order_date", { ascending: false });
+  const url = new URL(req.url);
+  const company = url.searchParams.get("company");
 
+  let query = supabase.from("commandes").select("*").order("order_date", { ascending: false });
+  if (company) query = query.eq("company", company);
+
+  const { data, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json((data ?? []).map(fromRow));
 }

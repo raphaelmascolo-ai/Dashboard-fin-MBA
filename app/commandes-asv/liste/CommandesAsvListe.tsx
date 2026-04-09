@@ -6,7 +6,7 @@ import {
   formatCHF,
   formatDate,
   DEVIS_MAX_BYTES,
-} from "../data";
+} from "../../commandes/data";
 import { createClient } from "../../lib/supabase/client";
 import NavButton from "../../components/NavButton";
 
@@ -300,7 +300,7 @@ function CommandeDetail({
 type SortKey = "orderDate" | "amount" | "fournisseur" | "chantier";
 type SortDir = "asc" | "desc";
 
-export default function CommandesListe() {
+export default function CommandesAsvListe() {
   const [commandes, setCommandes] = useState<Commande[]>([]);
   const [loading, setLoading] = useState(true);
   const [accessError, setAccessError] = useState<string>("");
@@ -340,7 +340,7 @@ export default function CommandesListe() {
         return;
       }
       const [res, cRes, fRes] = await Promise.all([
-        fetch("/api/commandes?company=MBA+Construction+SA"),
+        fetch("/api/commandes?company=ASV+Fen%C3%AAtres+et+Portes+SA"),
         fetch("/api/commandes/chantiers"),
         fetch("/api/commandes/fournisseurs"),
       ]);
@@ -543,10 +543,10 @@ export default function CommandesListe() {
     <div className="min-h-screen bg-warm">
       <header className="glass sticky top-0 z-20 border-b border-white/30">
         <div className="max-w-6xl mx-auto px-3 sm:px-5 py-2 sm:py-3 flex items-center justify-between gap-2">
-          <NavButton href="/commandes" label="Retour" />
+          <NavButton href="/commandes-asv" label="Retour" />
           <div className="text-sm font-semibold text-[#1d1d1f] truncate text-center flex-1">
-            <span className="sm:hidden">Commandes MBA</span>
-            <span className="hidden sm:inline">Commandes — MBA Construction SA</span>
+            <span className="sm:hidden">Commandes ASV</span>
+            <span className="hidden sm:inline">Commandes — ASV Fenêtres et Portes SA</span>
           </div>
           <div className="w-[44px]" aria-hidden />
         </div>
