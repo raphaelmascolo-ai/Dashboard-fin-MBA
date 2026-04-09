@@ -68,20 +68,24 @@ export default async function FinancePage() {
 
   return (
     <div className="min-h-screen bg-warm">
-      <header className="glass sticky top-0 z-20 border-b border-white/30">
+      <header className="glass sticky top-0 z-20">
         <div className="max-w-5xl mx-auto px-3 sm:px-5 py-2 sm:py-3 flex items-center justify-between gap-2">
           <NavButton href="/" label="Accueil" />
-          <div className="text-sm font-semibold text-[#1d1d1f] truncate text-center flex-1">
+          <div className="text-sm font-bold text-[#1a1a1a] truncate text-center flex-1">
             Finance
           </div>
           <HeaderActions isAdmin={isAdmin} />
         </div>
+        <div className="mba-accent-bar" />
       </header>
 
       <main className="max-w-5xl mx-auto px-6 py-10">
         <div className="mb-8">
-          <h1 className="text-2xl font-semibold text-[#1d1d1f]">Finance</h1>
-          <p className="text-[#86868b] mt-1 text-sm">Hypothèques et vue par société.</p>
+          <div className="inline-block bg-[#fef3c7] text-[#854d0e] text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-md mb-2">
+            Univers Finance
+          </div>
+          <h1 className="text-3xl font-bold text-[#1a1a1a] tracking-tight">Finance</h1>
+          <p className="text-[#6b7280] mt-1 text-sm">Hypothèques et vue par société.</p>
         </div>
 
         {/* ── Module Hypothèques ──────────────────────────────────── */}

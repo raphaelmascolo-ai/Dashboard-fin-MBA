@@ -1,8 +1,18 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f5f0eb;
-  --foreground: #1d1d1f;
+  /* Background: crème très clair, sobre, lisible */
+  --background: #f7f6f1;
+  --foreground: #1a1a1a;
+
+  /* Palette MBA Groupe SA */
+  --mba-yellow: #facc15;        /* jaune vif du logo */
+  --mba-yellow-soft: #fef3c7;   /* jaune pâle pour fonds */
+  --mba-yellow-deep: #ca8a04;   /* jaune foncé pour textes sur fond clair */
+  --mba-dark: #1a1a1a;          /* charbon (texte fort) */
+  --mba-gray: #6b7280;          /* gris secondaire */
+  --mba-line: #e5e7eb;          /* bordures */
+  --mba-surface: #ffffff;       /* surface des cards */
 }
 
 @theme inline {
@@ -20,59 +30,152 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Glass effects */
+/* ─────────────────────────────────────────────────────────────────────────
+   Glass effects (gardés pour les headers sticky uniquement)
+   ───────────────────────────────────────────────────────────────────────── */
 .glass {
-  background: rgba(255, 255, 255, 0.72);
+  background: rgba(255, 255, 255, 0.85);
   backdrop-filter: blur(20px) saturate(180%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border-bottom: 1px solid var(--mba-line);
 }
 
 .glass-strong {
-  background: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(30px) saturate(200%);
   -webkit-backdrop-filter: blur(30px) saturate(200%);
 }
 
-.glass-dark {
-  background: rgba(29, 29, 31, 0.72);
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
-}
-
+/* ─────────────────────────────────────────────────────────────────────────
+   Cards: surface blanche solide, bordure fine, ombre légère
+   Bien plus lisible que l'ancien glass translucide
+   ───────────────────────────────────────────────────────────────────────── */
 .glass-card {
-  background: rgba(255, 255, 255, 0.6);
-  backdrop-filter: blur(16px) saturate(160%);
-  -webkit-backdrop-filter: blur(16px) saturate(160%);
-  border: 1px solid rgba(255, 255, 255, 0.5);
-  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.04), 0 0 0 1px rgba(0, 0, 0, 0.02);
+  background: var(--mba-surface);
+  border: 1px solid var(--mba-line);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02);
+  transition: box-shadow 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
 }
 
 .glass-card:hover {
-  background: rgba(255, 255, 255, 0.75);
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06), 0 0 0 1px rgba(0, 0, 0, 0.03);
+  background: var(--mba-surface);
+  border-color: #d4d4d4;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06), 0 2px 4px rgba(0, 0, 0, 0.04);
 }
 
-/* Subtle warm gradient backgrounds */
+/* Variante: card avec accent MBA au survol */
+.mba-card {
+  background: var(--mba-surface);
+  border: 1px solid var(--mba-line);
+  border-radius: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.mba-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: transparent;
+  transition: background 0.2s ease;
+}
+
+.mba-card:hover {
+  border-color: var(--mba-yellow);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08), 0 2px 6px rgba(0, 0, 0, 0.04);
+  transform: translateY(-2px);
+}
+
+.mba-card:hover::before {
+  background: var(--mba-yellow);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Backgrounds
+   ───────────────────────────────────────────────────────────────────────── */
 .bg-warm {
-  background: linear-gradient(135deg, #fef7ed 0%, #f5f0eb 50%, #fef3e2 100%);
+  background: var(--background);
 }
 
 .bg-warm-hero {
-  background: linear-gradient(180deg, #fef7ed 0%, #f5f0eb 100%);
+  background: linear-gradient(180deg, #ffffff 0%, var(--background) 100%);
 }
 
-/* Smooth scrollbar */
+/* Bande d'accent jaune (utilisée sous les headers pour rappeler la marque) */
+.mba-accent-bar {
+  height: 3px;
+  background: var(--mba-yellow);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Boutons
+   ───────────────────────────────────────────────────────────────────────── */
+.btn-mba {
+  background: var(--mba-yellow);
+  color: var(--mba-dark);
+  font-weight: 600;
+  border: 1px solid var(--mba-yellow);
+  transition: all 0.15s ease;
+}
+
+.btn-mba:hover {
+  background: #eab308;
+  border-color: #eab308;
+}
+
+.btn-mba:active {
+  transform: scale(0.97);
+}
+
+.btn-dark {
+  background: var(--mba-dark);
+  color: #ffffff;
+  font-weight: 600;
+  border: 1px solid var(--mba-dark);
+  transition: all 0.15s ease;
+}
+
+.btn-dark:hover {
+  background: #2a2a2a;
+}
+
+.btn-dark:active {
+  transform: scale(0.97);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Scrollbars discrètes
+   ───────────────────────────────────────────────────────────────────────── */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.15);
-  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.12);
+  border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 0, 0, 0.25);
+  background: rgba(0, 0, 0, 0.22);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Logo: cadre arrondi clair pour le logo MBA (qui est sur fond noir natif)
+   Permet de l'afficher correctement sur fond clair sans qu'il soit invisible.
+   ───────────────────────────────────────────────────────────────────────── */
+.logo-frame {
+  background: var(--mba-dark);
+  border-radius: 10px;
+  padding: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
 }

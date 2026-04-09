@@ -1,8 +1,7 @@
 import Link from "next/link";
 
-// Bouton de navigation iOS-style — gros, clair, zone de tap >= 44px,
-// chevron à gauche par défaut (back), à droite si direction="forward".
-// Couleur bleu système Apple, feedback visuel au tap.
+// Bouton de navigation iOS-style — adapté à la palette MBA Groupe SA
+// (jaune + noir charbon). Zone de tap >= 44px, feedback visuel au tap.
 export default function NavButton({
   href,
   label,
@@ -14,13 +13,13 @@ export default function NavButton({
   direction?: "back" | "forward" | "none";
   variant?: "primary" | "neutral";
 }) {
-  const color = variant === "primary" ? "text-[#0071e3]" : "text-[#1d1d1f]";
+  const color = variant === "primary" ? "text-[#1a1a1a]" : "text-[#6b7280]";
   const negMargin = direction === "back" ? "-ml-2" : direction === "forward" ? "-mr-2" : "";
 
   return (
     <Link
       href={href}
-      className={`inline-flex items-center gap-1 px-2 sm:px-3 py-2.5 rounded-xl ${color} hover:bg-white/60 active:bg-blue-50 active:scale-95 transition-all min-h-[44px] -my-1 ${negMargin}`}
+      className={`inline-flex items-center gap-1 px-2 sm:px-3 py-2.5 rounded-xl ${color} hover:bg-[#fef3c7] active:bg-[#facc15] active:scale-95 transition-all min-h-[44px] -my-1 ${negMargin}`}
     >
       {direction === "back" && (
         <svg className="w-6 h-6 shrink-0" viewBox="0 0 20 20" fill="currentColor" aria-hidden>
@@ -31,7 +30,7 @@ export default function NavButton({
           />
         </svg>
       )}
-      <span className="text-base font-medium">{label}</span>
+      <span className="text-base font-semibold">{label}</span>
       {direction === "forward" && (
         <svg className="w-6 h-6 shrink-0" viewBox="0 0 20 20" fill="currentColor" aria-hidden>
           <path
