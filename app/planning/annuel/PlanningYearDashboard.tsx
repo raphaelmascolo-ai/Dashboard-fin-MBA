@@ -145,12 +145,12 @@ function ResizeHandle({ bar, side }: { bar: Bar; side: "left" | "right" }) {
       {...listeners}
       {...attributes}
       className={`absolute top-0 bottom-0 ${side === "left" ? "left-0" : "right-0"} w-3 cursor-ew-resize z-20 flex items-center justify-center group ${
-        isDragging ? "bg-[#facc15]" : "hover:bg-[#fef3c7]"
+        isDragging ? "bg-[#1a1a1a]" : "hover:bg-[#1a1a1a]/15"
       }`}
       style={{ touchAction: "none", pointerEvents: "auto" }}
       title="Glissez pour étendre / réduire"
     >
-      <div className="w-0.5 h-5 bg-gray-400 group-hover:bg-[#1a1a1a] rounded" />
+      <div className="w-0.5 h-5 bg-[#1a1a1a]/60 group-hover:bg-[#1a1a1a] rounded" />
     </div>
   );
 }
@@ -177,20 +177,20 @@ function BarComponent({
       style={{
         left: left + 2,
         width: width - 4,
-        background: "#fef3c7",
-        border: "1px solid #fcd34d",
+        background: "#facc15",
+        border: "1px solid #ca8a04",
         borderLeft: `4px solid ${sideColor}`,
         pointerEvents: "none",
       }}
     >
       {canEdit && <ResizeHandle bar={bar} side="left" />}
       <div
-        className="flex-1 px-2 truncate text-[11px] font-bold text-[#854d0e] min-w-0"
+        className="flex-1 px-2 truncate text-[11px] font-bold text-[#1a1a1a] min-w-0"
         style={{ pointerEvents: "auto" }}
       >
         <span className="truncate">{site.name}</span>
         {span > 1 && (
-          <span className="text-[10px] text-[#a16207] ml-1 font-semibold">({span} sem.)</span>
+          <span className="text-[10px] text-[#3f3f3f] ml-1 font-semibold">({span} sem.)</span>
         )}
       </div>
       {canEdit && (
