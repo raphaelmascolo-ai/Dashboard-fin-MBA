@@ -54,6 +54,8 @@ function Toast({ message, type }: { message: string; type: "success" | "error" }
 function CommandeDetail({
   commande,
   saving,
+  chantierOptions,
+  fournisseurOptions,
   onSave,
   onDelete,
   onClose,
@@ -61,6 +63,8 @@ function CommandeDetail({
 }: {
   commande: Commande;
   saving: boolean;
+  chantierOptions: { id: string; name: string; location: string | null }[];
+  fournisseurOptions: string[];
   onSave: (c: Commande, devisFile: File | null, removeDevis: boolean) => void;
   onDelete: (id: string) => void;
   onClose: () => void;
@@ -149,21 +153,39 @@ function CommandeDetail({
           </FormField>
 
           <FormField label="Chantier *" error={errors.chantier}>
-            <input
-              type="text"
+            <select
               value={form.chantier}
               onChange={(e) => set("chantier", e.target.value)}
               className={inputCls(errors.chantier)}
-            />
+            >
+              <option value="">Sélectionner un chantier…</option>
+              {/* Conserve la valeur historique si le chantier n'est plus dans la liste active */}
+              {form.chantier && !chantierOptions.some((c) => c.name === form.chantier) && (
+                <option value={form.chantier}>{form.chantier} (archivé)</option>
+              )}
+              {chantierOptions.map((c) => (
+                <option key={c.id} value={c.name}>
+                  {c.name}
+                  {c.location ? ` — ${c.location}` : ""}
+                </option>
+              ))}
+            </select>
           </FormField>
 
           <FormField label="Fournisseur *" error={errors.fournisseur}>
             <input
               type="text"
+              list="fournisseurs-edit-list"
               value={form.fournisseur}
               onChange={(e) => set("fournisseur", e.target.value)}
+              autoComplete="off"
               className={inputCls(errors.fournisseur)}
             />
+            <datalist id="fournisseurs-edit-list">
+              {fournisseurOptions.map((f) => (
+                <option key={f} value={f} />
+              ))}
+            </datalist>
           </FormField>
 
           <FormField
@@ -298,6 +320,10 @@ export default function CommandesListe() {
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<{ msg: string; type: "success" | "error" } | null>(null);
 
+  // Listes pour le formulaire d'édition (chantiers actifs + fournisseurs déjà saisis)
+  const [chantierOptions, setChantierOptions] = useState<{ id: string; name: string; location: string | null }[]>([]);
+  const [fournisseurOptions, setFournisseurOptions] = useState<string[]>([]);
+
   const showToast = useCallback((msg: string, type: "success" | "error") => {
     setToast({ msg, type });
     setTimeout(() => setToast(null), 3000);
@@ -313,13 +339,19 @@ export default function CommandesListe() {
         setLoading(false);
         return;
       }
-      const res = await fetch("/api/commandes");
+      const [res, cRes, fRes] = await Promise.all([
+        fetch("/api/commandes"),
+        fetch("/api/commandes/chantiers"),
+        fetch("/api/commandes/fournisseurs"),
+      ]);
       if (!res.ok) {
         setAccessError("Erreur de chargement des commandes.");
         setLoading(false);
         return;
       }
       setCommandes(await res.json());
+      if (cRes.ok) setChantierOptions(await cRes.json());
+      if (fRes.ok) setFournisseurOptions(await fRes.json());
     } catch {
       setAccessError("Erreur de chargement.");
     }
@@ -734,6 +766,8 @@ export default function CommandesListe() {
         <CommandeDetail
           commande={editing}
           saving={saving}
+          chantierOptions={chantierOptions}
+          fournisseurOptions={fournisseurOptions}
           onSave={handleSave}
           onDelete={handleDelete}
           onClose={() => setEditing(null)}

@@ -60,6 +60,8 @@ export default function CommandesDashboard() {
   const [accessError, setAccessError] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [chantiers, setChantiers] = useState<{ id: string; name: string; location: string | null }[]>([]);
+  const [fournisseurs, setFournisseurs] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const showToast = useCallback((msg: string, type: "success" | "error") => {
@@ -67,7 +69,7 @@ export default function CommandesDashboard() {
     setTimeout(() => setToast(null), 3500);
   }, []);
 
-  // Vérification d'accès au chargement
+  // Vérification d'accès au chargement + chargement chantiers/fournisseurs
   useEffect(() => {
     (async () => {
       try {
@@ -80,7 +82,17 @@ export default function CommandesDashboard() {
         const p: { view: boolean; create: boolean; edit: boolean } = await res.json();
         if (!p.create) {
           setAccessError("Vous n'avez pas la permission de créer des commandes.");
+          setLoading(false);
+          return;
         }
+
+        // Charge en parallèle la liste des chantiers actifs et l'historique des fournisseurs
+        const [cRes, fRes] = await Promise.all([
+          fetch("/api/commandes/chantiers"),
+          fetch("/api/commandes/fournisseurs"),
+        ]);
+        if (cRes.ok) setChantiers(await cRes.json());
+        if (fRes.ok) setFournisseurs(await fRes.json());
       } catch {
         setAccessError("Erreur de chargement.");
       }
@@ -176,6 +188,11 @@ export default function CommandesDashboard() {
         throw new Error(error || "Erreur lors de l'envoi");
       }
       showToast("Commande envoyée ✓", "success");
+      // Si le fournisseur est nouveau, on l'ajoute localement à la liste pour la prochaine saisie
+      const fName = toSave.fournisseur.trim();
+      if (fName && !fournisseurs.includes(fName)) {
+        setFournisseurs((prev) => [...prev, fName].sort((a, b) => a.localeCompare(b, "fr-CH", { sensitivity: "base" })));
+      }
       resetForm();
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (err) {
@@ -238,26 +255,49 @@ export default function CommandesDashboard() {
             />
           </FormField>
 
-          <FormField label="Chantier *" error={errors.chantier}>
-            {/* TODO: brancher sur le module Chantiers quand il existera */}
-            <input
-              type="text"
+          <FormField
+            label="Chantier *"
+            error={errors.chantier}
+            hint={
+              chantiers.length === 0
+                ? "Aucun chantier — créez-en un dans le module Planning Chantiers."
+                : undefined
+            }
+          >
+            <select
               value={form.chantier}
               onChange={(e) => set("chantier", e.target.value)}
-              placeholder="Nom du chantier"
               className={inputCls(errors.chantier)}
-            />
+            >
+              <option value="">Sélectionner un chantier…</option>
+              {chantiers.map((c) => (
+                <option key={c.id} value={c.name}>
+                  {c.name}
+                  {c.location ? ` — ${c.location}` : ""}
+                </option>
+              ))}
+            </select>
           </FormField>
 
-          <FormField label="Fournisseur *" error={errors.fournisseur}>
+          <FormField
+            label="Fournisseur *"
+            error={errors.fournisseur}
+            hint="Choisissez un fournisseur déjà saisi ou tapez-en un nouveau"
+          >
             <input
               type="text"
+              list="fournisseurs-list"
               value={form.fournisseur}
               onChange={(e) => set("fournisseur", e.target.value)}
               placeholder="Nom du fournisseur"
               autoComplete="off"
               className={inputCls(errors.fournisseur)}
             />
+            <datalist id="fournisseurs-list">
+              {fournisseurs.map((f) => (
+                <option key={f} value={f} />
+              ))}
+            </datalist>
           </FormField>
 
           <FormField
