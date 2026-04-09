@@ -19,6 +19,7 @@ import {
   type Site,
   type Assignment,
   type Holiday,
+  type Period,
   SYSTEM_LEAVE_ID,
   SYSTEM_INSURANCE_ID,
   SYSTEM_SITE_IDS,
@@ -38,6 +39,7 @@ import {
   roleColor,
   roleShort,
   workerLabel,
+  periodShort,
   generateAssignmentId,
 } from "./data";
 import NavButton from "../components/NavButton";
@@ -80,8 +82,8 @@ function Toast({ message, type }: { message: string; type: "success" | "error" }
   );
 }
 
-// ── WorkerChip (read-only badge) ──────────────────────────────────────────────
-function WorkerChip({ worker }: { worker: Worker }) {
+// ── WorkerChip (read-only badge, used in week view) ─────────────────────────
+function WorkerChip({ worker, period }: { worker: Worker; period?: Period }) {
   const c = roleColor(worker.role);
   return (
     <span
@@ -95,6 +97,9 @@ function WorkerChip({ worker }: { worker: Worker }) {
         {roleShort(worker.role)}
       </span>
       {workerLabel(worker)}
+      {period && period !== "journée" && (
+        <span className="text-[9px] font-bold opacity-70">{periodShort(period)}</span>
+      )}
     </span>
   );
 }
@@ -103,15 +108,22 @@ function WorkerChip({ worker }: { worker: Worker }) {
 function DraggableWorker({
   worker,
   dragId,
+  period,
+  availPeriod,
+  onTogglePeriod,
 }: {
   worker: Worker;
   dragId: string;
+  period?: Period;
+  availPeriod?: "matin" | "après-midi";
+  onTogglePeriod?: () => void;
 }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: dragId,
     data: {
       workerId: worker.id,
       fromAssignmentId: dragId.startsWith("a:") ? dragId.slice(2) : null,
+      period: availPeriod ?? period ?? "journée",
     },
   });
   const c = roleColor(worker.role);
@@ -128,7 +140,7 @@ function DraggableWorker({
         touchAction: "none",
       }}
       className="inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-semibold cursor-grab active:cursor-grabbing select-none shadow-sm hover:shadow min-h-[34px]"
-      title={`${worker.firstName} ${worker.lastName}`}
+      title={`${worker.firstName} ${worker.lastName}${period ? ` (${period})` : ""}`}
     >
       <span
         className="inline-flex items-center justify-center w-4 h-4 rounded-full text-[9px] font-bold"
@@ -137,6 +149,24 @@ function DraggableWorker({
         {roleShort(worker.role)}
       </span>
       <span className="whitespace-nowrap">{workerLabel(worker)}</span>
+      {period && onTogglePeriod && (
+        <button
+          onPointerDown={(e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            onTogglePeriod();
+          }}
+          className="ml-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-white/60 hover:bg-white border border-current/20 active:scale-95 cursor-pointer"
+          title="Cliquer pour changer: J / M / AM"
+        >
+          {periodShort(period)}
+        </button>
+      )}
+      {availPeriod && (
+        <span className="text-[9px] font-bold opacity-60">
+          {availPeriod === "matin" ? "M" : "AM"}
+        </span>
+      )}
     </div>
   );
 }
@@ -439,12 +469,30 @@ export default function PlanningDashboard() {
     return map;
   }, [assignments]);
 
-  // Pool jour-courant: ouvriers actifs NON encore assignés ce jour-là
+  // Pool jour-courant: ouvriers pas encore fully assignés
+  // Un ouvrier en "journée" n'est pas dans le pool.
+  // Un ouvrier en "matin" seul est dans le pool comme dispo "après-midi".
+  // Un ouvrier en "après-midi" seul est dans le pool comme dispo "matin".
+  // Un ouvrier en matin + après-midi n'est pas dans le pool.
   const dayPool = useMemo(() => {
-    const assignedToday = new Set(
-      assignments.filter((a) => a.dayDate === currentDayIso).map((a) => a.workerId)
-    );
-    return workers.filter((w) => w.active && !assignedToday.has(w.id));
+    const todayAssignments = assignments.filter((a) => a.dayDate === currentDayIso);
+    const byWorker = new Map<string, Set<string>>();
+    todayAssignments.forEach((a) => {
+      if (!byWorker.has(a.workerId)) byWorker.set(a.workerId, new Set());
+      byWorker.get(a.workerId)!.add(a.period);
+    });
+    return workers
+      .filter((w) => w.active)
+      .map((w) => {
+        const periods = byWorker.get(w.id);
+        if (!periods) return { worker: w, availPeriod: undefined as "matin" | "après-midi" | undefined };
+        if (periods.has("journée")) return null; // fully booked
+        if (periods.has("matin") && periods.has("après-midi")) return null; // fully booked
+        if (periods.has("matin")) return { worker: w, availPeriod: "après-midi" as const };
+        if (periods.has("après-midi")) return { worker: w, availPeriod: "matin" as const };
+        return { worker: w, availPeriod: undefined };
+      })
+      .filter(Boolean) as { worker: Worker; availPeriod: "matin" | "après-midi" | undefined }[];
   }, [workers, assignments, currentDayIso]);
 
   const isCurrentDayHoliday = holidaySet.has(currentDayIso);
@@ -464,11 +512,12 @@ export default function PlanningDashboard() {
     const { active, over } = e;
     if (!over) return;
     const data = active.data.current as
-      | { workerId: string; fromAssignmentId: string | null }
+      | { workerId: string; fromAssignmentId: string | null; period?: Period }
       | undefined;
     if (!data) return;
 
     const overId = String(over.id);
+    const dragPeriod: Period = data.period ?? "journée";
 
     // Drop sur le pool = retrait
     if (overId === POOL_DROPPABLE_ID) {
@@ -496,21 +545,26 @@ export default function PlanningDashboard() {
       ? assignments.find((a) => a.id === data.fromAssignmentId)
       : null;
 
-    // Si on drop sur le même site, ne rien faire
-    if (oldAssignment && oldAssignment.siteId === targetSiteId) return;
+    // Si on drop sur le même site avec la même période, ne rien faire
+    if (oldAssignment && oldAssignment.siteId === targetSiteId && oldAssignment.period === dragPeriod) return;
 
     const newAssignment: Assignment = {
       id: generateAssignmentId(),
       workerId: data.workerId,
       siteId: targetSiteId,
       dayDate: currentDayIso,
+      period: dragPeriod,
     };
 
-    // Optimistic: retire l'ancienne (ce worker est unique par jour) + ajoute la nouvelle
+    // Optimistic: retire l'ancienne assignation du même ouvrier/même période + ajoute la nouvelle
     setAssignments((prev) => {
-      const next = prev.filter(
-        (a) => !(a.workerId === data.workerId && a.dayDate === currentDayIso)
-      );
+      let next = oldAssignment ? prev.filter((a) => a.id !== oldAssignment.id) : prev;
+      // Si "journée", supprime aussi les demi-journées
+      if (dragPeriod === "journée") {
+        next = next.filter(
+          (a) => !(a.workerId === data.workerId && a.dayDate === currentDayIso)
+        );
+      }
       return [...next, newAssignment];
     });
 
@@ -530,6 +584,29 @@ export default function PlanningDashboard() {
         prev.map((a) => (a.id === newAssignment.id ? { ...a, id: created.id } : a))
       );
     } catch {
+      loadWeek();
+    }
+  }
+
+  // ── Toggle period (J → M → AM → J) ─────────────────────────────────────────
+  async function togglePeriod(assignmentId: string) {
+    const a = assignments.find((x) => x.id === assignmentId);
+    if (!a) return;
+    const nextPeriod: Period =
+      a.period === "journée" ? "matin" : a.period === "matin" ? "après-midi" : "journée";
+
+    // Optimistic
+    setAssignments((prev) =>
+      prev.map((x) => (x.id === assignmentId ? { ...x, period: nextPeriod } : x))
+    );
+
+    const res = await fetch(`/api/planning/assignments/${assignmentId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ period: nextPeriod }),
+    });
+    if (!res.ok) {
+      showToast("Changement échoué", "error");
       loadWeek();
     }
   }
@@ -826,8 +903,13 @@ export default function PlanningDashboard() {
                 </div>
               ) : (
                 <div className="flex flex-wrap gap-2">
-                  {dayPool.map((w) => (
-                    <DraggableWorker key={w.id} worker={w} dragId={`pool:${w.id}`} />
+                  {dayPool.map((item) => (
+                    <DraggableWorker
+                      key={`${item.worker.id}-${item.availPeriod ?? "full"}`}
+                      worker={item.worker}
+                      dragId={`pool:${item.worker.id}:${item.availPeriod ?? "journée"}`}
+                      availPeriod={item.availPeriod}
+                    />
                   ))}
                 </div>
               )}
@@ -838,14 +920,18 @@ export default function PlanningDashboard() {
               {visibleSites.map((site) => {
                 const isSystem = SYSTEM_SITE_IDS.includes(site.id);
                 const cellAssignments = assignmentsByCell[site.id]?.[currentDayIso] ?? [];
+                const workerCount = cellAssignments.length;
                 const sideColor = site.color ?? (
                   site.id === SYSTEM_LEAVE_ID ? "#9ca3af" :
                   site.id === SYSTEM_INSURANCE_ID ? "#60a5fa" :
+                  site.id === "SYS-DEPOT" ? "#a78bfa" :
                   "#d4d4d4"
                 );
                 const cardBg = isSystem
                   ? site.id === SYSTEM_LEAVE_ID
                     ? "bg-stone-50/80"
+                    : site.id === "SYS-DEPOT"
+                    ? "bg-purple-50/50"
                     : "bg-blue-50/60"
                   : "bg-white/70";
 
@@ -862,10 +948,20 @@ export default function PlanningDashboard() {
                     >
                       <div className="flex-1 min-w-0 p-3 sm:p-4">
                         <div className="flex items-start justify-between gap-2 mb-2">
-                          <div className="min-w-0 flex-1">
+                          <div className="min-w-0 flex-1 flex items-center gap-2">
                             <div className="text-sm font-bold text-[#1d1d1f] truncate">{site.name}</div>
+                            <span
+                              className={`shrink-0 inline-flex items-center justify-center min-w-[22px] h-[22px] px-1.5 rounded-full text-[10px] font-bold ${
+                                workerCount > 0
+                                  ? "bg-[#facc15] text-[#1a1a1a]"
+                                  : "bg-gray-100 text-gray-400"
+                              }`}
+                              title={`${workerCount} ouvrier${workerCount > 1 ? "s" : ""}`}
+                            >
+                              {workerCount}
+                            </span>
                             {site.location && (
-                              <div className="text-[11px] text-[#86868b] truncate">{site.location}</div>
+                              <div className="text-[11px] text-[#86868b] truncate hidden sm:block">{site.location}</div>
                             )}
                           </div>
                           {perms.sites && !isSystem && (
@@ -888,7 +984,13 @@ export default function PlanningDashboard() {
                               const w = workerById.get(a.workerId);
                               if (!w) return null;
                               return (
-                                <DraggableWorker key={a.id} worker={w} dragId={`a:${a.id}`} />
+                                <DraggableWorker
+                                  key={a.id}
+                                  worker={w}
+                                  dragId={`a:${a.id}`}
+                                  period={a.period}
+                                  onTogglePeriod={perms.assign ? () => togglePeriod(a.id) : undefined}
+                                />
                               );
                             })
                           )}
@@ -1044,7 +1146,7 @@ export default function PlanningDashboard() {
                                   {cellAssignments.map((a) => {
                                     const w = workerById.get(a.workerId);
                                     if (!w) return null;
-                                    return <WorkerChip key={a.id} worker={w} />;
+                                    return <WorkerChip key={a.id} worker={w} period={a.period} />;
                                   })}
                                 </div>
                               </td>

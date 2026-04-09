@@ -62,8 +62,9 @@ create policy "viewers_read_planning_sites" on public.planning_sites
 -- Seed des 2 lignes système (idempotent)
 insert into public.planning_sites (id, name, color, system, sort_order)
 values
-  ('SYS-LEAVE',    'Congé / Absent', '#9ca3af', true, 9001),
-  ('SYS-INSURANCE', 'Assurance',     '#60a5fa', true, 9002)
+  ('SYS-DEPOT',     'Dépôt',          '#a78bfa', true, 9000),
+  ('SYS-LEAVE',     'Congé / Absent', '#9ca3af', true, 9001),
+  ('SYS-INSURANCE', 'Assurance',      '#60a5fa', true, 9002)
 on conflict (id) do nothing;
 
 -- ─────────────────────────────────────────────────────────────────────────────
@@ -74,9 +75,10 @@ create table if not exists public.planning_assignments (
   worker_id   text not null references public.planning_workers(id) on delete cascade,
   site_id     text not null references public.planning_sites(id) on delete cascade,
   day_date    date not null,
+  period      text not null default 'journée' check (period in ('journée', 'matin', 'après-midi')),
   created_at  timestamptz default now(),
-  -- Un ouvrier ne peut être assigné qu'à une seule chose par jour
-  unique (worker_id, day_date)
+  -- Un ouvrier max par (jour, période)
+  unique (worker_id, day_date, period)
 );
 
 create index if not exists planning_assignments_day_idx on public.planning_assignments(day_date);

@@ -25,6 +25,7 @@ export interface Assignment {
   workerId: string;
   siteId: string;
   dayDate: string; // YYYY-MM-DD
+  period: Period;
 }
 
 export interface Holiday {
@@ -32,9 +33,28 @@ export interface Holiday {
   label: string;
 }
 
+export const SYSTEM_DEPOT_ID = "SYS-DEPOT";
 export const SYSTEM_LEAVE_ID = "SYS-LEAVE";
 export const SYSTEM_INSURANCE_ID = "SYS-INSURANCE";
-export const SYSTEM_SITE_IDS = [SYSTEM_LEAVE_ID, SYSTEM_INSURANCE_ID];
+export const SYSTEM_SITE_IDS = [SYSTEM_DEPOT_ID, SYSTEM_LEAVE_ID, SYSTEM_INSURANCE_ID];
+
+export type Period = "journée" | "matin" | "après-midi";
+
+export function periodLabel(p: Period): string {
+  switch (p) {
+    case "journée": return "Journée";
+    case "matin": return "Matin";
+    case "après-midi": return "Après-midi";
+  }
+}
+
+export function periodShort(p: Period): string {
+  switch (p) {
+    case "journée": return "J";
+    case "matin": return "M";
+    case "après-midi": return "AM";
+  }
+}
 
 export const WEEKDAY_LABELS = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi"];
 export const WEEKDAY_SHORT = ["Lun", "Mar", "Mer", "Jeu", "Ven"];

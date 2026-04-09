@@ -11,6 +11,7 @@ function fromRow(r: any): Assignment {
     workerId: r.worker_id,
     siteId: r.site_id,
     dayDate: r.day_date,
+    period: r.period ?? "journée",
   };
 }
 
@@ -20,11 +21,11 @@ function toRow(a: Assignment) {
     worker_id: a.workerId,
     site_id: a.siteId,
     day_date: a.dayDate,
+    period: a.period ?? "journée",
   };
 }
 
 // GET /api/planning/assignments?week=YYYY-MM-DD
-// Renvoie les assignations sur les 5 jours ouvrés à partir du lundi indiqué.
 export async function GET(req: Request) {
   const supabase = await createClient();
   const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -37,7 +38,6 @@ export async function GET(req: Request) {
   const weekStr = url.searchParams.get("week");
   if (!weekStr) return NextResponse.json({ error: "week required" }, { status: 400 });
 
-  // Calcule le vendredi
   const monday = new Date(weekStr + "T00:00:00");
   const friday = new Date(monday);
   friday.setDate(monday.getDate() + 4);
@@ -53,8 +53,10 @@ export async function GET(req: Request) {
 }
 
 // POST /api/planning/assignments → create
-// 1 ouvrier max par jour: si l'ouvrier a déjà une assignation ce jour-là,
-// elle est remplacée (delete-then-insert atomique).
+// Logique de remplacement selon la période:
+// - "journée" → supprime TOUT (journée/matin/après-midi) pour cet ouvrier ce jour
+// - "matin"   → supprime toute assignation "journée" existante, garde "après-midi"
+// - "après-midi" → supprime toute assignation "journée" existante, garde "matin"
 export async function POST(req: Request) {
   const supabase = await createClient();
   const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -64,6 +66,7 @@ export async function POST(req: Request) {
   if (!perms.assign) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const body: Assignment = await req.json();
+  const period = body.period ?? "journée";
   const admin = createAdminClient();
 
   // Refuse si le jour est férié
@@ -74,16 +77,33 @@ export async function POST(req: Request) {
     .maybeSingle();
   if (holiday) return NextResponse.json({ error: "Jour férié" }, { status: 409 });
 
-  // Supprime toute assignation existante pour cet ouvrier ce jour-là
-  await admin
-    .from("planning_assignments")
-    .delete()
-    .eq("worker_id", body.workerId)
-    .eq("day_date", body.dayDate);
+  if (period === "journée") {
+    // Supprime toute assignation existante pour cet ouvrier ce jour-là
+    await admin
+      .from("planning_assignments")
+      .delete()
+      .eq("worker_id", body.workerId)
+      .eq("day_date", body.dayDate);
+  } else {
+    // Supprime la journée complète si elle existe (on la "split")
+    await admin
+      .from("planning_assignments")
+      .delete()
+      .eq("worker_id", body.workerId)
+      .eq("day_date", body.dayDate)
+      .eq("period", "journée");
+    // Supprime la même demi-journée si doublon
+    await admin
+      .from("planning_assignments")
+      .delete()
+      .eq("worker_id", body.workerId)
+      .eq("day_date", body.dayDate)
+      .eq("period", period);
+  }
 
   const { data, error } = await admin
     .from("planning_assignments")
-    .insert(toRow(body))
+    .insert(toRow({ ...body, period }))
     .select()
     .single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
