@@ -115,12 +115,12 @@ function PoolSiteCard({ site }: { site: Site }) {
         touchAction: "none",
         borderLeft: `4px solid ${sideColor}`,
       }}
-      className="bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow cursor-grab active:cursor-grabbing select-none px-2.5 py-1.5 text-xs shrink-0 min-w-[140px]"
+      className="bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md hover:border-[#facc15] cursor-grab active:cursor-grabbing select-none px-2.5 py-2 text-xs shrink-0 min-w-[150px] transition-all"
       title={site.name}
     >
-      <div className="font-semibold text-[#1d1d1f] truncate leading-tight">{site.name}</div>
+      <div className="font-bold text-[#1a1a1a] truncate leading-tight">{site.name}</div>
       {site.location && (
-        <div className="text-[10px] text-[#86868b] truncate leading-tight">{site.location}</div>
+        <div className="text-[10px] text-[#6b7280] truncate leading-tight mt-0.5">{site.location}</div>
       )}
     </div>
   );
@@ -145,12 +145,12 @@ function ResizeHandle({ bar, side }: { bar: Bar; side: "left" | "right" }) {
       {...listeners}
       {...attributes}
       className={`absolute top-0 bottom-0 ${side === "left" ? "left-0" : "right-0"} w-3 cursor-ew-resize z-20 flex items-center justify-center group ${
-        isDragging ? "bg-amber-300" : "hover:bg-amber-200/60"
+        isDragging ? "bg-[#facc15]" : "hover:bg-[#fef3c7]"
       }`}
       style={{ touchAction: "none", pointerEvents: "auto" }}
       title="Glissez pour étendre / réduire"
     >
-      <div className="w-0.5 h-5 bg-gray-400 group-hover:bg-gray-700 rounded" />
+      <div className="w-0.5 h-5 bg-gray-400 group-hover:bg-[#1a1a1a] rounded" />
     </div>
   );
 }
@@ -229,7 +229,7 @@ function DropCell({
     <div
       ref={setNodeRef}
       className={`border-r border-gray-100 transition-colors ${
-        isOver ? "bg-amber-100/70" : isCurrent ? "bg-amber-50/40" : ""
+        isOver ? "bg-[#fef3c7] ring-2 ring-[#facc15] ring-inset" : isCurrent ? "bg-[#fffbeb]" : ""
       }`}
       style={{ width: COL_W, height: "100%" }}
     />
@@ -242,8 +242,8 @@ function PoolDropZone({ children }: { children: React.ReactNode }) {
   return (
     <div
       ref={setNodeRef}
-      className={`glass-card rounded-2xl p-3 transition-colors ${
-        isOver ? "bg-blue-50/60 ring-2 ring-blue-300 ring-inset" : ""
+      className={`glass-card rounded-2xl p-4 transition-all ${
+        isOver ? "bg-[#fef3c7] ring-2 ring-[#facc15] ring-inset" : ""
       }`}
     >
       {children}
@@ -301,7 +301,7 @@ function QuickSiteModal({
                 setErr("");
               }}
               placeholder="Villa Martin – Sion"
-              className={`w-full px-3 py-2.5 rounded-xl border text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-400 ${
+              className={`w-full px-3 py-2.5 rounded-xl border text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#facc15] ${
                 err ? "border-red-300" : "border-gray-200"
               }`}
             />
@@ -314,7 +314,7 @@ function QuickSiteModal({
               value={location}
               onChange={(e) => setLocation(e.target.value)}
               placeholder="Sion"
-              className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-400"
+              className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#facc15]"
             />
           </div>
           <div>
@@ -324,7 +324,7 @@ function QuickSiteModal({
                 type="button"
                 onClick={() => setColor(null)}
                 className={`w-8 h-8 rounded-full border-2 ${
-                  color === null ? "border-[#1d1d1f] ring-2 ring-amber-300" : "border-gray-200"
+                  color === null ? "border-[#1d1d1f] ring-2 ring-[#facc15]" : "border-gray-200"
                 } bg-white text-xs text-gray-400`}
               >
                 ✕
@@ -335,7 +335,7 @@ function QuickSiteModal({
                   type="button"
                   onClick={() => setColor(c)}
                   className={`w-8 h-8 rounded-full border-2 ${
-                    color === c ? "border-[#1d1d1f] ring-2 ring-amber-300" : "border-white/60"
+                    color === c ? "border-[#1d1d1f] ring-2 ring-[#facc15]" : "border-white/60"
                   }`}
                   style={{ background: c }}
                   aria-label={c}
@@ -354,7 +354,7 @@ function QuickSiteModal({
             <button
               type="submit"
               disabled={saving}
-              className="flex-1 bg-[#1d1d1f] text-white text-sm font-semibold px-5 py-2 rounded-xl hover:bg-[#333] disabled:opacity-50"
+              className="flex-1 btn-mba text-sm px-5 py-2.5 rounded-xl disabled:opacity-50"
             >
               {saving ? "Création…" : "Créer"}
             </button>
@@ -701,21 +701,22 @@ export default function PlanningYearDashboard() {
 
   return (
     <div className="min-h-screen bg-warm flex flex-col">
-      <header className="glass sticky top-0 z-30 border-b border-white/30">
+      <header className="glass sticky top-0 z-30">
         <div className="max-w-[1800px] mx-auto px-3 sm:px-5 py-2 sm:py-3 flex items-center justify-between gap-2">
           <NavButton href="/mba-construction" label="Retour" />
-          <div className="text-sm font-semibold text-[#1d1d1f] truncate text-center flex-1">
+          <div className="text-sm font-bold text-[#1a1a1a] truncate text-center flex-1">
             Vue annuelle chantiers
           </div>
           <Link
             href="/planning"
-            className="inline-flex items-center gap-1 px-2.5 py-2 text-xs font-medium text-[#1d1d1f] bg-white/60 border border-white/40 rounded-xl hover:bg-white/80 active:scale-95 transition-all min-h-[44px]"
+            className="inline-flex items-center gap-1 px-2.5 py-2 text-xs font-semibold text-[#1a1a1a] bg-white border border-gray-200 hover:bg-[#fef3c7] hover:border-[#facc15] rounded-xl active:scale-95 transition-all min-h-[44px]"
             title="Vue planning hebdomadaire"
           >
             <span className="hidden sm:inline">📅 Hebdo</span>
             <span className="sm:hidden">📅</span>
           </Link>
         </div>
+        <div className="mba-accent-bar" />
       </header>
 
       <main className="flex-1 max-w-[1800px] w-full mx-auto px-3 sm:px-5 py-3 sm:py-4 flex flex-col min-h-0">
@@ -724,31 +725,34 @@ export default function PlanningYearDashboard() {
           <div className="flex items-center gap-1.5">
             <button
               onClick={() => setYear((y) => y - 1)}
-              className="w-10 h-10 rounded-xl bg-white/60 hover:bg-white border border-white/40 active:scale-95 transition-all text-base"
+              className="w-10 h-10 rounded-xl bg-white hover:bg-[#fef3c7] hover:border-[#facc15] border border-gray-200 active:scale-95 transition-all text-base font-bold text-[#1a1a1a]"
               aria-label="Année précédente"
             >
               ‹
             </button>
             <button
               onClick={() => setYear((y) => y + 1)}
-              className="w-10 h-10 rounded-xl bg-white/60 hover:bg-white border border-white/40 active:scale-95 transition-all text-base"
+              className="w-10 h-10 rounded-xl bg-white hover:bg-[#fef3c7] hover:border-[#facc15] border border-gray-200 active:scale-95 transition-all text-base font-bold text-[#1a1a1a]"
               aria-label="Année suivante"
             >
               ›
             </button>
             <button
               onClick={() => setYear(new Date().getFullYear())}
-              className="ml-1 px-3 py-2 rounded-xl bg-white/60 hover:bg-white border border-white/40 active:scale-95 transition-all text-xs font-medium min-h-[40px]"
+              className="ml-1 px-3 py-2 rounded-xl bg-white hover:bg-[#fef3c7] hover:border-[#facc15] border border-gray-200 active:scale-95 transition-all text-xs font-semibold text-[#1a1a1a] min-h-[40px]"
             >
               Année en cours
             </button>
           </div>
-          <div className="text-xl font-bold text-[#1d1d1f]">{year}</div>
+          <div className="flex items-center gap-2">
+            <div className="w-1 h-7 rounded bg-[#facc15]" />
+            <div className="text-2xl font-bold text-[#1a1a1a] tracking-tight">{year}</div>
+          </div>
           <div className="flex items-center gap-1.5">
             {perms.sites && (
               <Link
                 href="/planning/chantiers"
-                className="px-3 py-2 rounded-xl bg-white/60 hover:bg-white border border-white/40 active:scale-95 transition-all text-xs font-medium min-h-[40px]"
+                className="px-3 py-2 rounded-xl bg-white hover:bg-[#fef3c7] hover:border-[#facc15] border border-gray-200 active:scale-95 transition-all text-xs font-semibold text-[#1a1a1a] min-h-[40px]"
               >
                 🏗️ Gérer
               </Link>
@@ -756,7 +760,7 @@ export default function PlanningYearDashboard() {
             {perms.sites && (
               <button
                 onClick={() => setShowSiteModal(true)}
-                className="px-3 py-2 rounded-xl bg-[#1d1d1f] text-white hover:bg-[#333] active:scale-95 transition-all text-xs font-semibold min-h-[40px]"
+                className="px-3 py-2 rounded-xl btn-mba active:scale-95 text-xs min-h-[40px]"
               >
                 + Chantier
               </button>
@@ -768,23 +772,28 @@ export default function PlanningYearDashboard() {
           {/* Pool des chantiers en haut */}
           <div className="mb-3">
             <PoolDropZone>
-              <div className="flex items-center gap-3 mb-2">
-                <div className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide shrink-0">
-                  Chantiers ({filteredPoolSites.length})
+              <div className="flex items-center gap-3 mb-3">
+                <div className="flex items-center gap-2 shrink-0">
+                  <div className="text-[11px] font-bold text-[#1a1a1a] uppercase tracking-wide">
+                    Chantiers
+                  </div>
+                  <span className="inline-flex items-center justify-center min-w-[22px] h-[22px] px-1.5 rounded-full bg-[#facc15] text-[#1a1a1a] text-[11px] font-bold">
+                    {filteredPoolSites.length}
+                  </span>
                 </div>
                 <input
                   type="text"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Rechercher…"
-                  className="flex-1 max-w-[280px] px-3 py-1.5 rounded-lg border border-gray-200 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-amber-400"
+                  className="flex-1 max-w-[280px] px-3 py-2 rounded-lg border border-gray-200 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-[#facc15] focus:border-[#facc15] transition-all"
                 />
-                <div className="text-[10px] text-gray-400 italic hidden sm:block">
-                  Glissez un chantier sur une semaine, puis tirez les poignées pour étendre.
+                <div className="text-[10px] text-[#9ca3af] italic hidden md:block">
+                  Glissez sur une semaine, puis tirez les poignées pour étendre
                 </div>
               </div>
               {filteredPoolSites.length === 0 ? (
-                <div className="text-xs text-gray-400 italic py-2">
+                <div className="text-xs text-[#9ca3af] italic py-2">
                   {activeSites.length === 0
                     ? "Aucun chantier — créez-en un avec « + Chantier »."
                     : "Aucun résultat."}
@@ -804,9 +813,9 @@ export default function PlanningYearDashboard() {
             <div ref={scrollRef} className="overflow-auto max-h-[68vh]">
               <div style={{ minWidth: SIDEBAR_W + totalWeeks * COL_W }}>
                 {/* Bande mois */}
-                <div className="flex sticky top-0 z-20 bg-stone-100 border-b-2 border-gray-300">
+                <div className="flex sticky top-0 z-20 bg-[#fafaf7] border-b-2 border-[#facc15]">
                   <div
-                    className="sticky left-0 z-30 bg-stone-100 border-r-2 border-gray-300 px-3 py-2 text-[10px] font-bold text-gray-500 uppercase tracking-wide flex items-center"
+                    className="sticky left-0 z-30 bg-[#fafaf7] border-r-2 border-gray-200 px-3 py-2.5 text-[10px] font-bold text-[#1a1a1a] uppercase tracking-wider flex items-center"
                     style={{ width: SIDEBAR_W, minWidth: SIDEBAR_W }}
                   >
                     Chantier
@@ -814,8 +823,8 @@ export default function PlanningYearDashboard() {
                   {monthGroups.map((g, gi) => (
                     <div
                       key={`${g.monthIndex}-${gi}`}
-                      className={`shrink-0 px-2 py-2 text-[11px] font-bold text-[#1d1d1f] uppercase tracking-wide text-center border-r border-gray-300 ${
-                        gi % 2 === 0 ? "bg-stone-100" : "bg-stone-50"
+                      className={`shrink-0 px-2 py-2.5 text-[11px] font-bold uppercase tracking-wider text-center border-r border-gray-200 text-[#1a1a1a] ${
+                        gi % 2 === 0 ? "bg-[#fafaf7]" : "bg-white"
                       }`}
                       style={{ width: g.weeks.length * COL_W }}
                     >
@@ -825,9 +834,9 @@ export default function PlanningYearDashboard() {
                 </div>
 
                 {/* En-têtes semaines */}
-                <div className="flex sticky top-[34px] z-10 bg-white border-b-2 border-gray-300">
+                <div className="flex sticky top-[37px] z-10 bg-white border-b-2 border-gray-200">
                   <div
-                    className="sticky left-0 z-20 bg-white border-r-2 border-gray-300"
+                    className="sticky left-0 z-20 bg-white border-r-2 border-gray-200"
                     style={{ width: SIDEBAR_W, minWidth: SIDEBAR_W }}
                   />
                   {weeks.map((w) => {
@@ -836,15 +845,19 @@ export default function PlanningYearDashboard() {
                       <div
                         key={`h-${w.week}`}
                         data-week={w.week}
-                        className={`shrink-0 px-1 py-1.5 text-center border-r border-gray-200 ${
-                          isCurrent ? "bg-amber-100" : ""
+                        className={`shrink-0 px-1 py-2 text-center border-r border-gray-100 ${
+                          isCurrent ? "bg-[#fef3c7] border-l-2 border-l-[#facc15]" : ""
                         }`}
                         style={{ width: COL_W }}
                       >
-                        <div className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide leading-none">
+                        <div className={`text-[10px] font-bold uppercase tracking-wide leading-none ${
+                          isCurrent ? "text-[#854d0e]" : "text-[#1a1a1a]"
+                        }`}>
                           S{w.week}
                         </div>
-                        <div className="text-[9px] text-gray-400 mt-0.5 leading-none">
+                        <div className={`text-[9px] mt-1 leading-none ${
+                          isCurrent ? "text-[#854d0e]" : "text-[#9ca3af]"
+                        }`}>
                           {formatWeekDates(w.monday, w.sunday)}
                         </div>
                       </div>
@@ -853,21 +866,27 @@ export default function PlanningYearDashboard() {
                 </div>
 
                 {/* Lignes chantiers */}
-                {placedSites.map((site) => {
+                {placedSites.map((site, rowIdx) => {
                   const bars = barsBySite.get(site.id) ?? [];
+                  const rowBg = rowIdx % 2 === 0 ? "bg-white" : "bg-[#fafaf7]";
                   return (
-                    <div key={site.id} className="flex border-b border-gray-200 hover:bg-stone-50/50">
+                    <div key={site.id} className={`flex border-b border-gray-100 hover:bg-[#fef3c7]/30 transition-colors ${rowBg}`}>
                       {/* Sticky name column */}
                       <div
-                        className="sticky left-0 z-[5] bg-white border-r-2 border-gray-300 px-3 py-2 flex items-center"
-                        style={{ width: SIDEBAR_W, minWidth: SIDEBAR_W, height: ROW_H }}
+                        className={`sticky left-0 z-[5] border-r-2 border-gray-200 px-3 py-2 flex items-center ${rowBg}`}
+                        style={{
+                          width: SIDEBAR_W,
+                          minWidth: SIDEBAR_W,
+                          height: ROW_H,
+                          borderLeft: `4px solid ${site.color ?? "#9ca3af"}`,
+                        }}
                       >
                         <div className="min-w-0">
-                          <div className="text-xs font-semibold text-[#1d1d1f] truncate">
+                          <div className="text-xs font-bold text-[#1a1a1a] truncate">
                             {site.name}
                           </div>
                           {site.location && (
-                            <div className="text-[10px] text-gray-400 truncate">
+                            <div className="text-[10px] text-[#6b7280] truncate">
                               {site.location}
                             </div>
                           )}
@@ -901,13 +920,18 @@ export default function PlanningYearDashboard() {
                 })}
 
                 {/* Phantom row pour ajouter un nouveau chantier */}
-                <div className="flex border-b border-gray-200 bg-stone-50/40">
+                <div className="flex border-b-2 border-dashed border-[#facc15]/40 bg-[#fffbeb]">
                   <div
-                    className="sticky left-0 z-[5] bg-stone-50 border-r-2 border-gray-300 px-3 py-2 flex items-center"
-                    style={{ width: SIDEBAR_W, minWidth: SIDEBAR_W, height: ROW_H }}
+                    className="sticky left-0 z-[5] bg-[#fffbeb] border-r-2 border-gray-200 px-3 py-2 flex items-center"
+                    style={{
+                      width: SIDEBAR_W,
+                      minWidth: SIDEBAR_W,
+                      height: ROW_H,
+                      borderLeft: "4px dashed #facc15",
+                    }}
                   >
-                    <div className="text-[10px] text-gray-400 italic truncate">
-                      Glissez un chantier ici
+                    <div className="text-[10px] font-semibold text-[#854d0e] italic truncate">
+                      ✨ Glissez un chantier ici
                     </div>
                   </div>
                   <div
@@ -926,8 +950,12 @@ export default function PlanningYearDashboard() {
                 </div>
 
                 {placedSites.length === 0 && (
-                  <div className="px-6 py-10 text-center text-sm text-gray-400">
-                    Aucun chantier placé. Glissez un chantier depuis le pool ci-dessus.
+                  <div className="px-6 py-12 text-center">
+                    <div className="w-14 h-14 mx-auto mb-3 rounded-2xl bg-[#fef3c7] flex items-center justify-center text-2xl">
+                      🗓️
+                    </div>
+                    <div className="text-sm font-semibold text-[#1a1a1a] mb-1">Aucun chantier placé</div>
+                    <div className="text-xs text-[#6b7280]">Glissez un chantier depuis le pool ci-dessus pour démarrer.</div>
                   </div>
                 )}
               </div>
