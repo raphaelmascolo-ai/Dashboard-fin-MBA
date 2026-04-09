@@ -39,7 +39,7 @@ import {
   roleColor,
   roleShort,
   workerLabel,
-  periodShort,
+  periodLabel,
   generateAssignmentId,
 } from "./data";
 import NavButton from "../components/NavButton";
@@ -98,7 +98,7 @@ function WorkerChip({ worker, period }: { worker: Worker; period?: Period }) {
       </span>
       {workerLabel(worker)}
       {period && period !== "journée" && (
-        <span className="text-[9px] font-bold opacity-70">{periodShort(period)}</span>
+        <span className="text-[9px] font-bold opacity-70">{periodLabel(period)}</span>
       )}
     </span>
   );
@@ -157,14 +157,14 @@ function DraggableWorker({
             onTogglePeriod();
           }}
           className="ml-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-white/60 hover:bg-white border border-current/20 active:scale-95 cursor-pointer"
-          title="Cliquer pour changer: J / M / AM"
+          title="Cliquer pour changer: Journée / Matin / Après-midi"
         >
-          {periodShort(period)}
+          {periodLabel(period)}
         </button>
       )}
       {availPeriod && (
         <span className="text-[9px] font-bold opacity-60">
-          {availPeriod === "matin" ? "M" : "AM"}
+          {availPeriod === "matin" ? "Matin" : "Après-midi"}
         </span>
       )}
     </div>
