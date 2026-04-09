@@ -177,20 +177,20 @@ function BarComponent({
       style={{
         left: left + 2,
         width: width - 4,
-        background: "#ffffff",
-        border: "1px solid #e5e7eb",
+        background: "#fef3c7",
+        border: "1px solid #fcd34d",
         borderLeft: `4px solid ${sideColor}`,
         pointerEvents: "none",
       }}
     >
       {canEdit && <ResizeHandle bar={bar} side="left" />}
       <div
-        className="flex-1 px-2 truncate text-[11px] font-semibold text-[#1d1d1f] min-w-0"
+        className="flex-1 px-2 truncate text-[11px] font-bold text-[#854d0e] min-w-0"
         style={{ pointerEvents: "auto" }}
       >
         <span className="truncate">{site.name}</span>
         {span > 1 && (
-          <span className="text-[10px] text-gray-400 ml-1">({span} sem.)</span>
+          <span className="text-[10px] text-[#a16207] ml-1 font-semibold">({span} sem.)</span>
         )}
       </div>
       {canEdit && (
