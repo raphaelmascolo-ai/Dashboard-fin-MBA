@@ -15,6 +15,7 @@ export default async function Home() {
   let hasFinance = false;
   let hasVehicules = false;
   let hasMbaConstruction = false;
+  let hasAsvFenetres = false;
   if (user) {
     const { data: profile } = await supabase.from("user_profiles").select("role").eq("id", user.id).single();
     isAdmin = profile?.role === "admin";
@@ -22,12 +23,14 @@ export default async function Home() {
       hasFinance = true;
       hasVehicules = true;
       hasMbaConstruction = true;
+      hasAsvFenetres = true;
     } else {
       const { data: perms } = await supabase.from("user_permissions").select("type").eq("user_id", user.id);
       const types = new Set((perms ?? []).map((p) => p.type as string));
       hasFinance = types.has("access_finance") || types.has("all") || types.has("company");
       hasVehicules = types.has("access_vehicules") || types.has("vehicle_all");
       hasMbaConstruction = types.has("access_mba_construction") || types.has("commande_view") || types.has("commande_create") || types.has("planning_view") || types.has("planning_assign");
+      hasAsvFenetres = types.has("access_asv_fenetres");
     }
   }
 
@@ -184,6 +187,27 @@ export default async function Home() {
               </div>
               <div className="px-5 py-5 text-sm text-[#6b7280] flex-1 leading-relaxed">
                 Déclaration des commandes, planning chantiers et outils du quotidien.
+              </div>
+              <div className="px-5 py-3 flex items-center justify-end border-t border-gray-100 bg-[#fafaf7] mt-auto">
+                <span className="text-xs font-bold text-[#1a1a1a] group-hover:text-[#ca8a04] transition-colors">Ouvrir →</span>
+              </div>
+            </div>
+          </Link>}
+
+          {/* ── ASV Fenêtres et Portes SA ─────────────────────── */}
+          {hasAsvFenetres && <Link href="/asv-fenetres" className="group block">
+            <div className="mba-card h-full flex flex-col">
+              <div className="px-5 py-5 flex items-center gap-3 border-b border-gray-100">
+                <div className="w-12 h-12 rounded-xl bg-[#fef3c7] flex items-center justify-center text-2xl shrink-0">
+                  🪟
+                </div>
+                <div className="min-w-0">
+                  <div className="text-base font-bold text-[#1a1a1a] truncate">ASV Fenêtres et Portes SA</div>
+                  <div className="text-[11px] text-[#6b7280] mt-0.5">Outils opérationnels</div>
+                </div>
+              </div>
+              <div className="px-5 py-5 text-sm text-[#6b7280] flex-1 leading-relaxed">
+                Déclaration des commandes fournisseurs.
               </div>
               <div className="px-5 py-3 flex items-center justify-end border-t border-gray-100 bg-[#fafaf7] mt-auto">
                 <span className="text-xs font-bold text-[#1a1a1a] group-hover:text-[#ca8a04] transition-colors">Ouvrir →</span>

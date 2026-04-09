@@ -110,6 +110,7 @@ export default function AdminPage() {
       case "access_finance": return "🏦 Finance";
       case "access_vehicules": return "🚗 Véhicules";
       case "access_mba_construction": return "🏗️ MBA Construction SA";
+      case "access_asv_fenetres": return "🪟 ASV Fenêtres et Portes SA";
       // Legacy / granulaires
       case "all": return "Hypothèques : Tout voir";
       case "company": return `Hypothèques — Société : ${p.value}`;
@@ -287,6 +288,7 @@ export default function AdminPage() {
                       { type: "access_finance", icon: "🏦", label: "Finance", desc: "Hypothèques, sociétés, cartes entreprises" },
                       { type: "access_vehicules", icon: "🚗", label: "Véhicules", desc: "Flotte, machines, leasings" },
                       { type: "access_mba_construction", icon: "🏗️", label: "MBA Construction SA", desc: "Commandes, planning chantiers, vue annuelle" },
+                      { type: "access_asv_fenetres", icon: "🪟", label: "ASV Fenêtres et Portes SA", desc: "Déclaration de commandes fournisseurs" },
                     ].map((mod) => (
                       <button
                         key={mod.type}

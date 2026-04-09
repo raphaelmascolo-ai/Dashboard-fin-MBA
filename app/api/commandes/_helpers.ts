@@ -21,11 +21,17 @@ export async function getCommandePerms(userId: string): Promise<CommandePerms> {
     .from("user_permissions")
     .select("type")
     .eq("user_id", userId)
-    .in("type", ["access_mba_construction", "commande_view", "commande_create", "commande_edit"]);
+    .in("type", [
+      "access_mba_construction",
+      "access_asv_fenetres",
+      "commande_view",
+      "commande_create",
+      "commande_edit",
+    ]);
   const types = new Set((perms ?? []).map((p) => p.type as string));
 
-  // access_mba_construction = accès complet
-  const fullAccess = types.has("access_mba_construction");
+  // access_mba_construction ou access_asv_fenetres = accès complet aux commandes
+  const fullAccess = types.has("access_mba_construction") || types.has("access_asv_fenetres");
 
   const create = fullAccess || types.has("commande_create");
   const edit = fullAccess || types.has("commande_edit");

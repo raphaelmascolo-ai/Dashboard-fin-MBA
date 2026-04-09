@@ -1,12 +1,16 @@
-// Module Commande MBA Construction SA
-// Toutes les commandes sont rattachées à la société MBA Construction SA (codée en dur).
+// Module Commandes — partagé entre MBA Construction SA et ASV Fenêtres et Portes SA.
+// Chaque formulaire fixe la société en dur dans le champ company.
 
-export const COMMANDE_COMPANY = "MBA Construction SA";
+export const COMMANDE_COMPANY_MBA = "MBA Construction SA";
+export const COMMANDE_COMPANY_ASV = "ASV Fenêtres et Portes SA";
+
+// Alias legacy (utilisé par le formulaire MBA existant)
+export const COMMANDE_COMPANY = COMMANDE_COMPANY_MBA;
 
 export interface Commande {
   id: string;
   orderDate: string;            // ISO date YYYY-MM-DD
-  chantier: string;             // TODO: brancher sur le module Chantiers quand il existera
+  chantier: string;
   fournisseur: string;
   description: string;
   amount: number;               // Montant estimé CHF TTC
@@ -14,11 +18,12 @@ export interface Commande {
   devisPath: string | null;     // chemin dans le bucket Supabase commandes-devis
   devisName: string | null;     // nom original du fichier
   comment: string;
+  company: string;
   createdAt: string | null;
   createdBy: string | null;
 }
 
-export function emptyCommande(): Commande {
+export function emptyCommande(company: string = COMMANDE_COMPANY_MBA): Commande {
   const today = new Date().toISOString().slice(0, 10);
   return {
     id: generateCommandeId(),
@@ -31,6 +36,7 @@ export function emptyCommande(): Commande {
     devisPath: null,
     devisName: null,
     comment: "",
+    company,
     createdAt: null,
     createdBy: null,
   };

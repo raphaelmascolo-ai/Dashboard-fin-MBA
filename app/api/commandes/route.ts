@@ -16,6 +16,7 @@ function toRow(c: Commande, userId?: string | null) {
     devis_path:    c.devisPath ?? null,
     devis_name:    c.devisName ?? null,
     comment:       c.comment ?? "",
+    company:       c.company ?? "MBA Construction SA",
     ...(userId ? { created_by: userId } : {}),
   };
 }
@@ -34,6 +35,7 @@ function fromRow(r: any): Commande {
     devisPath:    r.devis_path ?? null,
     devisName:    r.devis_name ?? null,
     comment:      r.comment ?? "",
+    company:      r.company ?? "MBA Construction SA",
     createdAt:    r.created_at ?? null,
     createdBy:    r.created_by ?? null,
   };

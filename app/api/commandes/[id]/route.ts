@@ -15,6 +15,7 @@ function toRow(c: Commande) {
     devis_path:    c.devisPath ?? null,
     devis_name:    c.devisName ?? null,
     comment:       c.comment ?? "",
+    company:       c.company ?? "MBA Construction SA",
   };
 }
 
