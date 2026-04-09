@@ -868,12 +868,16 @@ export default function PlanningYearDashboard() {
                 {/* Lignes chantiers */}
                 {placedSites.map((site, rowIdx) => {
                   const bars = barsBySite.get(site.id) ?? [];
+                  const totalWeeksForSite = bars.reduce(
+                    (s, b) => s + (b.endWeek - b.startWeek + 1),
+                    0
+                  );
                   const rowBg = rowIdx % 2 === 0 ? "bg-white" : "bg-[#fafaf7]";
                   return (
                     <div key={site.id} className={`flex border-b border-gray-100 hover:bg-[#fef3c7]/30 transition-colors ${rowBg}`}>
                       {/* Sticky name column */}
                       <div
-                        className={`sticky left-0 z-[5] border-r-2 border-gray-200 px-3 py-2 flex items-center ${rowBg}`}
+                        className={`sticky left-0 z-[5] border-r-2 border-gray-200 px-3 py-2 flex items-center gap-2 ${rowBg}`}
                         style={{
                           width: SIDEBAR_W,
                           minWidth: SIDEBAR_W,
@@ -881,7 +885,7 @@ export default function PlanningYearDashboard() {
                           borderLeft: `4px solid ${site.color ?? "#9ca3af"}`,
                         }}
                       >
-                        <div className="min-w-0">
+                        <div className="min-w-0 flex-1">
                           <div className="text-xs font-bold text-[#1a1a1a] truncate">
                             {site.name}
                           </div>
@@ -891,6 +895,12 @@ export default function PlanningYearDashboard() {
                             </div>
                           )}
                         </div>
+                        <span
+                          className="shrink-0 inline-flex items-center justify-center min-w-[28px] h-[20px] px-1.5 rounded-full bg-[#facc15] text-[#1a1a1a] text-[10px] font-bold"
+                          title={`${totalWeeksForSite} semaine${totalWeeksForSite > 1 ? "s" : ""} placée${totalWeeksForSite > 1 ? "s" : ""}`}
+                        >
+                          {totalWeeksForSite}
+                        </span>
                       </div>
                       {/* Cells + bars */}
                       <div
